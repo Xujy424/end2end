@@ -24,6 +24,8 @@ import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
 
+from training.args import BaseArg
+
 
 # ---------------------------------------------------------------------------
 # utils
@@ -168,7 +170,7 @@ class FundamentalEventEncoder(nn.Module):
 # ---------------------------------------------------------------------------
 
 
-class EREDModel(nn.Module):
+class ERED_Model(nn.Module):
     """事件驱动基本面融合模型主干。"""
 
     def __init__(
@@ -179,11 +181,17 @@ class EREDModel(nn.Module):
         price_layers: int = 2,
         dropout: float = 0.1,
         static_dim: int = 0,
+        max_age_for_decay: float = 60.0,
     ):
         super().__init__()
         self.static_dim = int(static_dim)
         self.market_encoder = MarketFeatureEncoder(price_dim, hidden_dim, price_layers, dropout)
-        self.event_encoder = FundamentalEventEncoder(event_dim, hidden_dim, dropout=dropout)
+        self.event_encoder = FundamentalEventEncoder(
+            event_dim=event_dim,
+            hidden_dim=hidden_dim,
+            max_age_for_decay=max_age_for_decay,
+            dropout=dropout,
+        )
 
         if self.static_dim > 0:
             self.static_encoder = nn.Sequential(
@@ -228,7 +236,11 @@ class EREDModel(nn.Module):
         feats: Optional[Dict[str, Tensor]] = None,
         return_aux: bool = False,
     ) -> Tensor | Tuple[Tensor, Dict[str, Tensor]]:
-        """支持显式张量输入，也支持直接传 multicompose 的 feats dict。"""
+        """支持 model(batch['feats']) 和显式张量传参两种调用方式。"""
+        if isinstance(price_x, dict) and feats is None:
+            feats = price_x
+            price_x = None
+
         if feats is not None:
             price_x = feats.get("dailyset", price_x)
             event_x = feats.get("eventvec", event_x)
@@ -312,7 +324,7 @@ class PairwiseRankLoss(nn.Module):
         return F.softplus(-self.margin_scale * sign * (pred[i] - pred[j])).mean()
 
 
-class EREDLoss(nn.Module):
+class ERED_Loss(nn.Module):
     """Huber + IC + Rank 的轻量组合损失。"""
 
     def __init__(self, huber_weight: float = 1.0, ic_weight: float = 0.1, rank_weight: float = 0.1, huber_delta: float = 1.0):
@@ -341,35 +353,195 @@ class EREDLoss(nn.Module):
         return loss, {"huber": huber.detach(), "ic": ic.detach(), "rank": rank.detach()}
 
 
-@torch.no_grad()
-def daily_ic(pred: Tensor, label: Tensor, eps: float = 1e-8) -> Tensor:
-    pred = pred.reshape(-1)
-    label = label.reshape(-1)
-    valid = finite_mask(pred, label)
-    pred = pred[valid]
-    label = label[valid]
-    if pred.numel() < 2:
-        return pred.new_tensor(float("nan"))
-    pred = pred - pred.mean()
-    label = label - label.mean()
-    return (pred * label).mean() / (pred.pow(2).mean().sqrt() * label.pow(2).mean().sqrt() + eps)
+
+class ERED_Arg(BaseArg):
+    d_fields = [
+        'close_zscore','open_zscore','high_zscore','low_zscore','logvolume_zscore','turnover_zscore',
+        'close_pct','open_pct','high_pct','low_pct','logvolume_pct','turnover_pct',
+        'close2open','high2open','low2open','high2low','high2close','low2close',
+    ]
+    event_fields = [
+        'ROETTM', 'ROICTTM', 'GrossIncomeRatioTTM', 'NetProfitRatioTTM',
+        'PeriodCostsRateTTM', 'AdminiExpenseRateTTM',
+        'TotalAssetTRateTTM', 'ARTRate', 'InventoryTRate',
+        'DebtAssetsRatio', 'LongDebtRatio',
+        'NPParentCompanyCutYOY', 'TotalAssetGrowRate', 'NetOperateCashFlowYOY',
+        'NOCFToOperatingNITTM', 'SaleServiceCashToORTTM', 'OperCashInToAsset',
+        'FixAssetRatio', 'IntangibleAssetRatio',
+    ]
+
+    def get_default_config(self):
+        return {
+            "training": {
+                "device": "cuda:4",
+                "seed": 480,
+                "num_epoch": 100,
+                "batch_size": 1,
+                "early_stop_patience": 3,
+                "early_stop_delta": 0,
+                "period": {
+                    "train_start": "2013-01-01",
+                    "train_end": "2022-12-31",
+                    "valid_start": "2023-01-01",
+                    "valid_end": "2023-12-31",
+                    "test_start": "2024-01-01",
+                    "test_end": "2024-12-31",
+                },
+                "dataset": {
+                    "name": "batch",
+                    "params": {
+                        "shared_param_dict": {
+                            "start_date": "2013-01-01",
+                            "end_date": "2025-12-31",
+                            "label": "Yyeo.10D",
+                            "mode": "universe",
+                            "pool_name": None,
+                            "fix_stock": None,
+                            "sample_size": None,
+                            # 只用 dailyset 做 NaN 过滤；事件分支有 padding，不参与过滤。
+                            "nanflit_set": ["dailyset"],
+                        },
+                        "specified_param_dict": {
+                            "dailyset": {
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_input/dGRU/",
+                                "fields": self.d_fields,
+                                "lag": 20,
+                            },
+                            "eventvec": {
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_specific/ered_v2/",
+                                "max_events": 8,
+                                "include_today": True,
+                            },
+                            "eventmask": {
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_specific/ered_v2/",
+                                "max_events": 8,
+                                "include_today": True,
+                            },
+                            "eventage": {
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_specific/ered_v2/",
+                                "max_events": 8,
+                                "include_today": True,
+                            },
+                        },
+                    },
+                },
+                "multi_gpu": False,
+                "available_gpu": [4, 5],
+                "main_gpu": 4,
+                "amp": False,
+                "deterministic": False,
+                "perf_path": "~/PycharmProjects/Models/XJY_end2end/0_result/",
+            },
+            "model": {
+                "name": "ered",
+                "params": {
+                    "price_dim": len(self.d_fields),
+                    "event_dim": len(self.event_fields),
+                    "hidden_dim": 128,
+                    "price_layers": 2,
+                    "dropout": 0.3,
+                    "static_dim": 0,
+                },
+                "loss": {
+                    # 保持和现有训练框架一致；若 loss registry 支持 ERED_Loss，可改成 ered。
+                    "name": "ic",
+                    "params": {},
+                },
+            },
+            "optimizer": {
+                "name": "adamw",
+                "optim_params": {
+                    "lr": 1e-3,
+                    "weight_decay": 1e-4,
+                    "eps": 1e-8,
+                },
+                "accumulation_steps": 1,
+                "if_grad_norm": True,
+                "max_grad_norm": 3.0,
+                "if_lr_decay": True,
+                "scheduler": "reduce_lr_on_plateau",
+                "sched_params": {
+                    "mode": "min",
+                    "factor": 0.5,
+                    "patience": 4,
+                },
+                "warmup": {
+                    "enabled": False,
+                    "name": "linearlr",
+                    "epoch": 5,
+                    "start_lr": 1e-8,
+                },
+            },
+        }
 
 
-# 兼容旧命名
-PEADLoss = EREDLoss
-PriceEncoder = MarketFeatureEncoder
-EventEncoder = FundamentalEventEncoder
+
+if __name__ == '__main__':
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    import pandas as pd
+
+    from training.trainer.basic_supervise import BasicSuperviseTrainer
+    from training.trainer.rolling_supervise import RollingSuperviseTrainer
+    from training.trainer import get_rolling_windows
+    from training.metrics import rankIC, IC, calc_group_ret
 
 
-__all__ = [
-    "DailyICLoss",
-    "EREDLoss",
-    "EREDModel",
-    "EventEncoder",
-    "FundamentalEventEncoder",
-    "MarketFeatureEncoder",
-    "PEADLoss",
-    "PairwiseRankLoss",
-    "PriceEncoder",
-    "daily_ic",
-]
+    args_class, model_class = ERED_Arg, ERED_Model
+    args = args_class()
+    print(args.model.params)
+
+    # trainer1 = BasicSuperviseTrainer(args, model_class)
+    # trainer1.train(save_loss=True)
+    # _, pred_df, label_df = trainer1.inference()
+    # trainer1.plot_cumsumIC(pred_df, label_df, name='Inference')
+    # trainer1.plot_group_ret(pred_df, label_df, name='Inference')
+
+
+    window_params = {
+        'start_dt': '2013-01-01',
+        'end_dt': '2025-12-31',
+        'train_len': 7,
+        'valid_len': 1,
+        'test_len': 1,
+        'rolling_gap': 1,
+    }
+    windows,_ = get_rolling_windows(**window_params)
+
+    trainer2 = RollingSuperviseTrainer(args, model_class, windows, special_loss=ERED_Loss)
+    trainer2.set_seed(args.training.seed)
+    pred_df, label_df = trainer2.train()
+    trainer2.plot_group_ret(pred_df, label_df, name='Merge')
+    trainer2.plot_cumsumIC(pred_df, label_df, name='Merge')
+
+    _, pred_df, label_df = trainer2.inference(
+        date_range=(windows[0][2][0],windows[-1][2][1]),
+    )
+    trainer2.plot_group_ret(pred_df, label_df, name='Inference')
+    trainer2.plot_cumsumIC(pred_df, label_df, name='Inference')
+    
+
+    # from main.bagging import bagging_parallel
+    # from training.plots import plot_group_ret
+
+    # window_params = {
+    #     'start_dt': '2013-01-01',
+    #     'end_dt': '2025-12-31',
+    #     'train_len': 7,
+    #     'valid_len': 1,
+    #     'test_len': 1,
+    #     'rolling_gap': 1,
+    # }
+    # windows,_ = get_rolling_windows(**window_params)
+
+    # ensemble_df, label_df = bagging_parallel(
+    #     5, 
+    #     'rolling_supervise', 
+    #     args, model_class,
+    #     kwargs={'rolling_windows': windows}, 
+    #     n_gpus=5)
+    # plot_group_ret(ensemble_df, label_df, name='Bagging', perf_path=args.training)
+
+
