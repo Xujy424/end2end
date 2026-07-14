@@ -214,7 +214,7 @@ class ERED_Model(nn.Module):
         if not return_aux:
             return pred
         aux = {"event_gate": gate, **event_aux}
-        return pred, aux
+        return pred#, aux
 
 
 class DailyICLoss(nn.Module):
@@ -288,7 +288,7 @@ class ERED_Loss(nn.Module):
         ic = self.ic_loss(pred_valid, label_valid)
         rank = self.rank_loss(pred_valid, label_valid)
         loss = self.huber_weight * huber + self.ic_weight * ic + self.rank_weight * rank
-        return loss, {"huber": huber.detach(), "ic": ic.detach(), "rank": rank.detach()}
+        return loss#, {"huber": huber.detach(), "ic": ic.detach(), "rank": rank.detach()}
 
 
 
@@ -346,17 +346,17 @@ class ERED_Arg(BaseArg):
                                 "lag": 20,
                             },
                             "eventvec": {
-                                "data_path": "/data/xujiayi/xjy/research_factors/model_specific/ered_v2/",
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_input/ered_v2/",
                                 "max_events": 8,
                                 "include_today": True,
                             },
                             "eventmask": {
-                                "data_path": "/data/xujiayi/xjy/research_factors/model_specific/ered_v2/",
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_input/ered_v2/",
                                 "max_events": 8,
                                 "include_today": True,
                             },
                             "eventage": {
-                                "data_path": "/data/xujiayi/xjy/research_factors/model_specific/ered_v2/",
+                                "data_path": "/data/xujiayi/xjy/research_factors/model_input/ered_v2/",
                                 "max_events": 8,
                                 "include_today": True,
                             },

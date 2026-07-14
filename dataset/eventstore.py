@@ -46,9 +46,9 @@ class PITEventStore:
         self.path = Path(data_path)
         self.max_events = int(max_events)
 
-        self.event_x = np.load(self.path / "event_x.npy", mmap_mode="r")
-        self.event_tick = np.load(self.path / "event_tick.npy", mmap_mode="r").astype(np.int64)
-        self.event_effective_idx = np.load(self.path / "event_effective_idx.npy", mmap_mode="r").astype(np.int64)
+        self.event_x = np.memmap(self.path / "event_x.bin", mode="r", shape=(226645, 19), dtype=float)
+        self.event_tick = np.memmap(self.path / "event_tick.bin", mode="r", shape=(226645,), dtype=np.int64)
+        self.event_effective_idx = np.memmap(self.path / "event_effective_idx.bin", mode="r", shape=(226645,), dtype=np.int64)
 
         if self.event_x.ndim != 2:
             raise ValueError(f"event_x should be [E, D_event], got {self.event_x.shape}")

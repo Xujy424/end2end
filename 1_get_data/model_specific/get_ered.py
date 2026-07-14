@@ -260,9 +260,12 @@ for feat in feat_cols:
 # =========================
 event_df = df.select(["tick_idx", "date_idx"] + feat_cols).sort(["tick_idx", "date_idx"])
 
-event_x = event_df.select(feat_cols).to_numpy().astype(float).tofile(OUT/"event_x.bin")
-event_tick = event_df["tick_idx"].to_numpy().astype(np.int64).tofile(OUT/"event_tick.bin")
-event_effective_idx = event_df["date_idx"].to_numpy().astype(np.int64).tofile(OUT/"event_effective_idx.bin")
+event_x = event_df.select(feat_cols).to_numpy().astype(float)
+event_x.tofile(OUT/"event_x.bin")
+event_tick = event_df["tick_idx"].to_numpy().astype(np.int64)
+event_tick.tofile(OUT/"event_tick.bin")
+event_effective_idx = event_df["date_idx"].to_numpy().astype(np.int64)
+event_effective_idx.tofile(OUT/"event_effective_idx.bin")
 
 print(f"saved to: {OUT}")
 print(f"event_x: {event_x.shape}")
