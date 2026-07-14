@@ -69,18 +69,7 @@ class ResidualMLP(nn.Module):
         return x + self.net(x)
 
 
-# ---------------------------------------------------------------------------
-# encoders
-# ---------------------------------------------------------------------------
-
-
 class MarketFeatureEncoder(nn.Module):
-    """市场量价特征编码器。
-
-    输入 [N, L, D_price]，输出 [N, H]。
-    GRU 比较轻，适合先把链路跑通；后续可替换为 TCN/Transformer。
-    """
-
     def __init__(self, price_dim: int, hidden_dim: int = 128, num_layers: int = 2, dropout: float = 0.1):
         super().__init__()
         self.input_proj = nn.Sequential(
@@ -104,19 +93,6 @@ class MarketFeatureEncoder(nn.Module):
 
 
 class FundamentalEventEncoder(nn.Module):
-    """基本面事件编码器。
-
-    输入：
-        event_x    [N, K, D_event]
-        event_mask [N, K]
-        event_age  [N, K]
-        query_repr [N, H]，通常来自量价编码器
-
-    输出：
-        event_repr [N, H]
-        aux attention/decay，方便诊断模型在看哪些事件。
-    """
-
     def __init__(self, event_dim: int, hidden_dim: int = 128, max_age_for_decay: float = 60.0, dropout: float = 0.1):
         super().__init__()
         self.max_age_for_decay = float(max_age_for_decay)
@@ -165,14 +141,7 @@ class FundamentalEventEncoder(nn.Module):
         return event_repr, {"event_attn": attn, "event_decay": decay, "event_valid": valid}
 
 
-# ---------------------------------------------------------------------------
-# backbone
-# ---------------------------------------------------------------------------
-
-
 class ERED_Model(nn.Module):
-    """事件驱动基本面融合模型主干。"""
-
     def __init__(
         self,
         price_dim: int,
@@ -180,11 +149,9 @@ class ERED_Model(nn.Module):
         hidden_dim: int = 128,
         price_layers: int = 2,
         dropout: float = 0.1,
-        static_dim: int = 0,
         max_age_for_decay: float = 60.0,
     ):
         super().__init__()
-        self.static_dim = int(static_dim)
         self.market_encoder = MarketFeatureEncoder(price_dim, hidden_dim, price_layers, dropout)
         self.event_encoder = FundamentalEventEncoder(
             event_dim=event_dim,
@@ -192,25 +159,13 @@ class ERED_Model(nn.Module):
             max_age_for_decay=max_age_for_decay,
             dropout=dropout,
         )
-
-        if self.static_dim > 0:
-            self.static_encoder = nn.Sequential(
-                nn.LayerNorm(static_dim),
-                nn.Linear(static_dim, hidden_dim),
-                nn.GELU(),
-                nn.Dropout(dropout),
-            )
-        else:
-            self.static_encoder = None
-
         self.event_gate = nn.Sequential(
             nn.Linear(hidden_dim * 2, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.Sigmoid(),
         )
-
-        fusion_dim = hidden_dim * 2 + (hidden_dim if self.static_dim > 0 else 0)
+        fusion_dim = hidden_dim * 2
         self.fusion = nn.Sequential(
             nn.LayerNorm(fusion_dim),
             nn.Linear(fusion_dim, hidden_dim * 2),
@@ -232,7 +187,6 @@ class ERED_Model(nn.Module):
         event_x: Optional[Tensor] = None,
         event_mask: Optional[Tensor] = None,
         event_age: Optional[Tensor] = None,
-        static_x: Optional[Tensor] = None,
         feats: Optional[Dict[str, Tensor]] = None,
         return_aux: bool = False,
     ) -> Tensor | Tuple[Tensor, Dict[str, Tensor]]:
@@ -246,7 +200,6 @@ class ERED_Model(nn.Module):
             event_x = feats.get("eventvec", event_x)
             event_mask = feats.get("eventmask", event_mask)
             event_age = feats.get("eventage", event_age)
-            static_x = feats.get("static", static_x)
 
         if price_x is None or event_x is None or event_mask is None or event_age is None:
             raise ValueError("price_x/event_x/event_mask/event_age are required")
@@ -256,10 +209,6 @@ class ERED_Model(nn.Module):
         gate = self.event_gate(torch.cat([price_repr, event_repr], dim=-1))
 
         parts = [price_repr, gate * event_repr]
-        if self.static_encoder is not None:
-            if static_x is None:
-                static_x = torch.zeros(price_x.shape[0], self.static_dim, device=price_x.device, dtype=price_x.dtype)
-            parts.append(self.static_encoder(static_x))
 
         pred = self.head(self.fusion(torch.cat(parts, dim=-1))).squeeze(-1)
         if not return_aux:
@@ -268,14 +217,7 @@ class ERED_Model(nn.Module):
         return pred, aux
 
 
-# ---------------------------------------------------------------------------
-# losses / metrics
-# ---------------------------------------------------------------------------
-
-
 class DailyICLoss(nn.Module):
-    """单日横截面 1 - Pearson IC。"""
-
     def __init__(self, eps: float = 1e-8):
         super().__init__()
         self.eps = eps
@@ -295,8 +237,6 @@ class DailyICLoss(nn.Module):
 
 
 class PairwiseRankLoss(nn.Module):
-    """横截面 pairwise 排序损失。"""
-
     def __init__(self, max_pairs: int = 4096, margin_scale: float = 1.0):
         super().__init__()
         self.max_pairs = int(max_pairs)
@@ -325,8 +265,6 @@ class PairwiseRankLoss(nn.Module):
 
 
 class ERED_Loss(nn.Module):
-    """Huber + IC + Rank 的轻量组合损失。"""
-
     def __init__(self, huber_weight: float = 1.0, ic_weight: float = 0.1, rank_weight: float = 0.1, huber_delta: float = 1.0):
         super().__init__()
         self.huber_weight = float(huber_weight)
@@ -440,7 +378,6 @@ class ERED_Arg(BaseArg):
                     "hidden_dim": 128,
                     "price_layers": 2,
                     "dropout": 0.3,
-                    "static_dim": 0,
                     "max_age_for_decay": 60.0,
                 },
                 "loss": {
@@ -544,6 +481,10 @@ if __name__ == '__main__':
     #     kwargs={'rolling_windows': windows}, 
     #     n_gpus=5)
     # plot_group_ret(ensemble_df, label_df, name='Bagging', perf_path=args.training)
+
+
+
+
 
 
 
