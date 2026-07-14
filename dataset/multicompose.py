@@ -208,7 +208,7 @@ class MultiBatchDataset(Dataset):
     def __init__(self, shared_param_dict, specified_param_dict):
         self.backends = {}
         for name, cfg in specified_param_dict.items():
-            if name == "dailyset":
+            if "dailyset" in name:
                 backend = DailyBase(
                     start_date=shared_param_dict['start_date'],
                     end_date=shared_param_dict['end_date'],

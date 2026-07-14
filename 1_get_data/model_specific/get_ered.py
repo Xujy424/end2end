@@ -73,6 +73,13 @@ industry = np.memmap(
     dtype=float,
 )
 
+logmv = np.memmap(
+    "/data/xujiayi/xjy/d_field/logmv.bin",
+    shape=(len(dates), len(ticks)),
+    mode="r",
+    dtype=float,
+)
+
 
 # =========================
 # Load fundamental event table
@@ -220,6 +227,9 @@ df = df.with_columns([
 ind = industry[df["date_idx"].to_numpy(), df["tick_idx"].to_numpy()]
 df = df.with_columns(pl.Series("industry", ind))
 
+logmv_vals = logmv[df["date_idx"].to_numpy(), df["tick_idx"].to_numpy()]
+df = df.with_columns(pl.Series("logmv", logmv_vals))
+
 for feat in feat_cols:
     # 行业中位数填补缺失
     industry_med = pl.col(feat).median().over(["trade_date", "industry"])
@@ -243,6 +253,15 @@ for feat in feat_cols:
         .otherwise(pl.col(feat))
         .alias(feat)
     )
+    
+    # 行业市值中性化
+    mean_feat = pl.col(feat).mean().over(["trade_date", "industry"])
+    mean_logmv = pl.col("logmv").mean().over(["trade_date", "industry"])
+    cov = ((pl.col(feat) - mean_feat) * (pl.col("logmv") - mean_logmv)).mean().over(["trade_date", "industry"])
+    var_logmv = ((pl.col("logmv") - mean_logmv) ** 2).mean().over(["trade_date", "industry"])
+    beta = pl.when(var_logmv > 1e-12).then(cov / var_logmv).otherwise(0.0)
+    residual = pl.col(feat) - mean_feat - beta * (pl.col("logmv") - mean_logmv)
+    df = df.with_columns(residual.alias(feat))
 
     # 当日横截面标准化
     mean = pl.col(feat).mean().over("trade_date")

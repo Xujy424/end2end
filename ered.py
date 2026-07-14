@@ -343,7 +343,7 @@ class ERED_Arg(BaseArg):
                             "dailyset": {
                                 "data_path": "/data/xujiayi/xjy/research_factors/model_input/dGRU/",
                                 "fields": self.d_fields,
-                                "lag": 20,
+                                "lag": 60,
                             },
                             "eventvec": {
                                 "data_path": "/data/xujiayi/xjy/research_factors/model_input/ered_v2/",
@@ -377,7 +377,7 @@ class ERED_Arg(BaseArg):
                     "event_dim": len(self.event_fields),
                     "hidden_dim": 128,
                     "price_layers": 2,
-                    "dropout": 0.3,
+                    "dropout": 0.5,
                     "max_age_for_decay": 60.0,
                 },
                 "loss": {
@@ -401,7 +401,7 @@ class ERED_Arg(BaseArg):
                 "sched_params": {
                     "mode": "min",
                     "factor": 0.5,
-                    "patience": 4,
+                    "patience": 2,
                 },
                 "warmup": {
                     "enabled": False,
@@ -448,7 +448,7 @@ if __name__ == '__main__':
     }
     windows,_ = get_rolling_windows(**window_params)
 
-    trainer2 = RollingSuperviseTrainer(args, model_class, windows, special_loss=ERED_Loss)
+    trainer2 = RollingSuperviseTrainer(args, model_class, windows, special_loss=ERED_Loss())
     trainer2.set_seed(args.training.seed)
     pred_df, label_df = trainer2.train()
     trainer2.plot_group_ret(pred_df, label_df, name='Merge')
