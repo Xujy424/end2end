@@ -177,3 +177,5 @@ class EventAgeBase(EventBase):
     def _get_daily_feat(self, date_idx, tick_indices):
         _, _, age = super()._get_daily_feat(date_idx, tick_indices)
         return age
+
+
