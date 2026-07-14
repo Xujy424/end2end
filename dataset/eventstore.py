@@ -1,20 +1,19 @@
 ﻿# -*- coding:utf-8 -*-
 """
-ERED 事件数据集。
+ERED 事件 Dataset。
 
-新版约定：事件数据目录只需要三个核心数组：
-    event_x.npy               float32, [E, D_event]
-    event_tick.npy            int64,   [E]
-    event_effective_idx.npy   int64,   [E]
+和项目现有框架的关系：
+- 继承 dataset.vanilla.BaseDataset；
+- 提供 EventVecBase / EventMaskBase / EventAgeBase 三个 backend；
+- 可以直接被 dataset.multicompose.MultiBatchDataset 通过 name=eventvec/eventmask/eventage 调用。
 
-事件长表本身只保存真实发生/真实披露的财报事件，不保存“空季度”。
-因此 padding、mask、最近 K 个事件的截取，都在 Dataset 按 date_idx 动态完成，
-不要在数据处理阶段伪造空事件。
+数据目录只需要三个文件：
+    event_x.npy              float32 [E, D_event]
+    event_tick.npy           int64   [E]
+    event_effective_idx.npy  int64   [E]
 
-输出给模型：
-    eventvec   [N, K, D_event]
-    eventmask  [N, K]
-    eventage   [N, K]
+输入事件表本身只包含真实财报事件，不补空季度。
+因此 eventmask 不由数据处理阶段生成，而是在这里按“最近 K 个真实事件，不足 K 则 padding”动态生成。
 """
 
 from __future__ import annotations
@@ -27,24 +26,23 @@ import numpy as np
 from .vanilla import BaseDataset
 
 
-_EVENT_STORE_CACHE: Dict[Tuple[str, int, int], "PITEventStore"] = {}
+_EVENT_STORE_CACHE: Dict[Tuple[str, int], "PITEventStore"] = {}
 
 
-def get_event_store(data_path, max_events, num_ticks):
-    key = (str(Path(data_path)), int(max_events), int(num_ticks))
+def get_event_store(data_path, max_events):
+    key = (str(Path(data_path)), int(max_events))
     if key not in _EVENT_STORE_CACHE:
-        _EVENT_STORE_CACHE[key] = PITEventStore(data_path, max_events=max_events, num_ticks=num_ticks)
+        _EVENT_STORE_CACHE[key] = PITEventStore(data_path, max_events)
     return _EVENT_STORE_CACHE[key]
 
 
 class PITEventStore:
-    """Point-in-time 财报事件存储。
+    """Point-in-time 事件存储。
 
-    不依赖 metadata.json，也不依赖 event_tick_ptr.npy。
-    num_ticks 由 vanilla.BaseDataset 的全市场股票轴传入。
+    对每个交易日 t 和股票 s，返回截至 t 已生效的最近 K 个真实事件。
     """
 
-    def __init__(self, data_path, max_events=8, num_ticks=None):
+    def __init__(self, data_path, max_events=8):
         self.path = Path(data_path)
         self.max_events = int(max_events)
 
@@ -53,15 +51,15 @@ class PITEventStore:
         self.event_effective_idx = np.load(self.path / "event_effective_idx.npy", mmap_mode="r").astype(np.int64)
 
         if self.event_x.ndim != 2:
-            raise ValueError(f"event_x.npy 应为 [E, D_event]，实际 shape={self.event_x.shape}")
-        if len(self.event_tick) != len(self.event_x) or len(self.event_effective_idx) != len(self.event_x):
-            raise ValueError("event_x/event_tick/event_effective_idx 长度不一致")
+            raise ValueError(f"event_x should be [E, D_event], got {self.event_x.shape}")
+        if len(self.event_x) != len(self.event_tick) or len(self.event_x) != len(self.event_effective_idx):
+            raise ValueError("event_x/event_tick/event_effective_idx length mismatch")
 
         self.event_dim = int(self.event_x.shape[1])
-        if num_ticks is None:
-            self.num_ticks = int(self.event_tick.max()) + 1 if len(self.event_tick) else 0
-        else:
-            self.num_ticks = int(num_ticks)
+        axis_ticks = BaseDataset._ticks
+        axis_num_ticks = len(axis_ticks) if axis_ticks is not None else 0
+        event_num_ticks = int(self.event_tick.max()) + 1 if len(self.event_tick) else 0
+        self.num_ticks = max(axis_num_ticks, event_num_ticks)
 
         self._by_tick = self._build_index()
         self.cache_key = None
@@ -85,8 +83,13 @@ class PITEventStore:
         return out
 
     def get_batch(self, trade_idx, tick_indices, include_today=True):
-        """返回某交易日横截面的最近 K 个已知事件。"""
+        """取横截面事件。
 
+        Returns:
+            eventvec:  [N, K, D_event]
+            eventmask: [N, K]
+            eventage:  [N, K]
+        """
         tick_indices = np.asarray(tick_indices, dtype=np.int64)
         key = (int(trade_idx), tick_indices.tobytes(), bool(include_today))
         if key == self.cache_key:
@@ -123,7 +126,7 @@ class PITEventStore:
 
 
 class EventBase(BaseDataset):
-    """事件特征 BaseDataset，供 MultiBatchDataset 组合调用。"""
+    """事件 backend 基类，与 vanilla.DailyBase 的接口保持一致。"""
 
     def __init__(self, data_path, start_date, end_date, max_events=8, include_today=True, **kwargs):
         super().__init__(start_date, end_date)
@@ -133,7 +136,7 @@ class EventBase(BaseDataset):
         self._post_init()
 
     def _load_fields(self):
-        self.store = get_event_store(self.data_path, self.max_events, num_ticks=len(self.ticks))
+        self.store = get_event_store(self.data_path, self.max_events)
 
     def _load_labels(self):
         pass
@@ -153,18 +156,24 @@ class EventBase(BaseDataset):
 
 
 class EventVecBase(EventBase):
+    """返回 [N, K, D_event]。"""
+
     def _get_daily_feat(self, date_idx, tick_indices):
         x, _, _ = super()._get_daily_feat(date_idx, tick_indices)
         return x
 
 
 class EventMaskBase(EventBase):
+    """返回 [N, K]。"""
+
     def _get_daily_feat(self, date_idx, tick_indices):
         _, m, _ = super()._get_daily_feat(date_idx, tick_indices)
         return m
 
 
 class EventAgeBase(EventBase):
+    """返回 [N, K]。"""
+
     def _get_daily_feat(self, date_idx, tick_indices):
         _, _, age = super()._get_daily_feat(date_idx, tick_indices)
         return age

@@ -1,20 +1,18 @@
 ﻿# -*- coding: utf-8 -*-
 """
-ERED: Earnings / Events-driven Return 模型。
+ERED: Event-driven Return model.
 
-本文件只保留模型和损失函数，不包含 dataset 和数据处理逻辑。
-数据读取由 dataset.vanilla / dataset.multicompose / dataset.eventstore 负责；
-原始长表到事件数组的处理由 1_get_data/model_specific/get_ered.py 负责。
+模型逻辑：
+- 量价特征是连续日频序列，由 MarketFeatureEncoder 编码；
+- 基本面财报是稀疏真实事件，由 FundamentalEventEncoder 编码；
+- 事件影响通过 event_age 的分桶和可学习 decay 表达 PEAD 式持续影响；
+- 主干 EREDModel 使用门控融合，让模型决定当前横截面中基本面事件有多重要。
 
-模型输入：
-    price_x     [N, L, D_price]   量价窗口，通常来自 dailyset
-    event_x     [N, K, D_event]   最近 K 个财报事件特征，来自 eventvec
-    event_mask  [N, K]            事件槽位 mask，来自 eventmask
-    event_age   [N, K]            距事件生效日的交易日 age，来自 eventage
-    static_x    [N, D_static]     可选静态特征
-
-模型输出：
-    pred        [N]               横截面股票 score / 未来收益预测
+和 dataset.multicompose 的默认对接：
+    feats['dailyset']   -> price_x     [N, L, D_price]
+    feats['eventvec']   -> event_x     [N, K, D_event]
+    feats['eventmask']  -> event_mask  [N, K]
+    feats['eventage']   -> event_age   [N, K]
 """
 
 from __future__ import annotations
@@ -28,12 +26,11 @@ import torch.nn.functional as F
 
 
 # ---------------------------------------------------------------------------
-# 工具函数
+# utils
 # ---------------------------------------------------------------------------
 
 
 def finite_mask(*xs: Tensor) -> Tensor:
-    """返回所有输入都为有限值的位置。"""
     mask = torch.ones_like(xs[0], dtype=torch.bool)
     for x in xs:
         mask = mask & torch.isfinite(x)
@@ -41,7 +38,7 @@ def finite_mask(*xs: Tensor) -> Tensor:
 
 
 def make_age_bucket(age: Tensor) -> Tensor:
-    """把事件 age 分桶为粗粒度 PEAD 影响周期。"""
+    """把事件 age 分成粗粒度 PEAD 持续影响区间。"""
     bucket = torch.zeros_like(age, dtype=torch.long)
     valid = age >= 0
     bucket = torch.where(valid & (age <= 1), torch.ones_like(bucket) * 1, bucket)
@@ -54,13 +51,8 @@ def make_age_bucket(age: Tensor) -> Tensor:
     return bucket
 
 
-# ---------------------------------------------------------------------------
-# 模型模块
-# ---------------------------------------------------------------------------
-
-
 class ResidualMLP(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int, dropout: float = 0.1):
+    def __init__(self, dim: int, hidden_dim: int, dropout: float):
         super().__init__()
         self.net = nn.Sequential(
             nn.LayerNorm(dim),
@@ -75,12 +67,21 @@ class ResidualMLP(nn.Module):
         return x + self.net(x)
 
 
-class PriceEncoder(nn.Module):
-    """量价窗口编码器：LayerNorm + Linear + GRU + residual MLP。"""
+# ---------------------------------------------------------------------------
+# encoders
+# ---------------------------------------------------------------------------
 
-    def __init__(self, price_dim: int, hidden_dim: int, num_layers: int = 2, dropout: float = 0.1):
+
+class MarketFeatureEncoder(nn.Module):
+    """市场量价特征编码器。
+
+    输入 [N, L, D_price]，输出 [N, H]。
+    GRU 比较轻，适合先把链路跑通；后续可替换为 TCN/Transformer。
+    """
+
+    def __init__(self, price_dim: int, hidden_dim: int = 128, num_layers: int = 2, dropout: float = 0.1):
         super().__init__()
-        self.input = nn.Sequential(
+        self.input_proj = nn.Sequential(
             nn.LayerNorm(price_dim),
             nn.Linear(price_dim, hidden_dim),
             nn.GELU(),
@@ -92,24 +93,29 @@ class PriceEncoder(nn.Module):
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
         )
-        self.post = ResidualMLP(hidden_dim, hidden_dim * 2, dropout=dropout)
+        self.post = ResidualMLP(hidden_dim, hidden_dim * 2, dropout)
 
     def forward(self, price_x: Tensor) -> Tensor:
-        h = self.input(price_x)
+        h = self.input_proj(price_x)
         out, _ = self.gru(h)
         return self.post(out[:, -1])
 
 
-class EventEncoder(nn.Module):
-    """财报事件编码器：事件投影 + age embedding + 可学习衰减 + attention。"""
+class FundamentalEventEncoder(nn.Module):
+    """基本面事件编码器。
 
-    def __init__(
-        self,
-        event_dim: int,
-        hidden_dim: int,
-        max_age_for_decay: float = 60.0,
-        dropout: float = 0.1,
-    ):
+    输入：
+        event_x    [N, K, D_event]
+        event_mask [N, K]
+        event_age  [N, K]
+        query_repr [N, H]，通常来自量价编码器
+
+    输出：
+        event_repr [N, H]
+        aux attention/decay，方便诊断模型在看哪些事件。
+    """
+
+    def __init__(self, event_dim: int, hidden_dim: int = 128, max_age_for_decay: float = 60.0, dropout: float = 0.1):
         super().__init__()
         self.max_age_for_decay = float(max_age_for_decay)
         self.event_proj = nn.Sequential(
@@ -129,26 +135,18 @@ class EventEncoder(nn.Module):
             nn.Linear(hidden_dim, 1),
             nn.Sigmoid(),
         )
-        self.out = ResidualMLP(hidden_dim, hidden_dim * 2, dropout=dropout)
+        self.post = ResidualMLP(hidden_dim, hidden_dim * 2, dropout)
 
-    def forward(
-        self,
-        event_x: Tensor,
-        event_mask: Tensor,
-        event_age: Tensor,
-        price_repr: Tensor,
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, event_x: Tensor, event_mask: Tensor, event_age: Tensor, query_repr: Tensor) -> Tuple[Tensor, Dict[str, Tensor]]:
         valid = (event_mask > 0) & (event_age >= 0)
         age = event_age.clamp_min(0).float()
         h = self.event_proj(event_x) + self.age_emb(make_age_bucket(event_age))
 
-        # PEAD 直觉：财报影响会持续一段时间，但强度随 age 改变。
         age_norm = (age / self.max_age_for_decay).clamp(0.0, 5.0)
         log_age = torch.log1p(age) / math.log1p(self.max_age_for_decay)
-        decay = self.decay(torch.stack([age_norm, log_age], dim=-1)).squeeze(-1)
-        decay = decay * valid.float()
+        decay = self.decay(torch.stack([age_norm, log_age], dim=-1)).squeeze(-1) * valid.float()
 
-        q = self.query(price_repr).unsqueeze(1)
+        q = self.query(query_repr).unsqueeze(1)
         k = self.key(h)
         v = self.value(h)
         score = (q * k).sum(dim=-1) / math.sqrt(k.shape[-1])
@@ -160,62 +158,57 @@ class EventEncoder(nn.Module):
         attn = torch.where(no_event.unsqueeze(-1), torch.zeros_like(attn), attn)
 
         event_repr = torch.sum(attn.unsqueeze(-1) * v, dim=1)
-        event_repr = self.out(event_repr)
+        event_repr = self.post(event_repr)
         event_repr = torch.where(no_event.unsqueeze(-1), torch.zeros_like(event_repr), event_repr)
-        return event_repr, attn, decay
+        return event_repr, {"event_attn": attn, "event_decay": decay, "event_valid": valid}
 
 
-class StaticEncoder(nn.Module):
-    def __init__(self, static_dim: int, hidden_dim: int, dropout: float = 0.1):
-        super().__init__()
-        self.static_dim = int(static_dim)
-        if self.static_dim > 0:
-            self.net = nn.Sequential(
-                nn.LayerNorm(static_dim),
-                nn.Linear(static_dim, hidden_dim),
-                nn.GELU(),
-                nn.Dropout(dropout),
-                nn.Linear(hidden_dim, hidden_dim),
-            )
-        else:
-            self.net = None
-
-    def forward(self, static_x: Tensor, batch_size: int, device: torch.device) -> Tensor:
-        if self.net is None:
-            return torch.zeros(batch_size, 0, device=device)
-        return self.net(static_x)
+# ---------------------------------------------------------------------------
+# backbone
+# ---------------------------------------------------------------------------
 
 
 class EREDModel(nn.Module):
-    """量价 + 基本面事件驱动的横截面选股模型。"""
+    """事件驱动基本面融合模型主干。"""
 
     def __init__(
         self,
         price_dim: int,
         event_dim: int,
-        static_dim: int = 0,
         hidden_dim: int = 128,
         price_layers: int = 2,
         dropout: float = 0.1,
+        static_dim: int = 0,
     ):
         super().__init__()
-        self.price_encoder = PriceEncoder(price_dim, hidden_dim, price_layers, dropout)
-        self.event_encoder = EventEncoder(event_dim, hidden_dim, dropout=dropout)
-        self.static_encoder = StaticEncoder(static_dim, hidden_dim, dropout=dropout)
+        self.static_dim = int(static_dim)
+        self.market_encoder = MarketFeatureEncoder(price_dim, hidden_dim, price_layers, dropout)
+        self.event_encoder = FundamentalEventEncoder(event_dim, hidden_dim, dropout=dropout)
 
-        fusion_dim = hidden_dim * 2 + (hidden_dim if static_dim > 0 else 0)
+        if self.static_dim > 0:
+            self.static_encoder = nn.Sequential(
+                nn.LayerNorm(static_dim),
+                nn.Linear(static_dim, hidden_dim),
+                nn.GELU(),
+                nn.Dropout(dropout),
+            )
+        else:
+            self.static_encoder = None
+
         self.event_gate = nn.Sequential(
             nn.Linear(hidden_dim * 2, hidden_dim),
             nn.GELU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.Sigmoid(),
         )
+
+        fusion_dim = hidden_dim * 2 + (hidden_dim if self.static_dim > 0 else 0)
         self.fusion = nn.Sequential(
             nn.LayerNorm(fusion_dim),
             nn.Linear(fusion_dim, hidden_dim * 2),
             nn.GELU(),
             nn.Dropout(dropout),
-            ResidualMLP(hidden_dim * 2, hidden_dim * 4, dropout=dropout),
+            ResidualMLP(hidden_dim * 2, hidden_dim * 4, dropout),
             nn.LayerNorm(hidden_dim * 2),
         )
         self.head = nn.Sequential(
@@ -227,46 +220,49 @@ class EREDModel(nn.Module):
 
     def forward(
         self,
-        price_x: Tensor,
-        event_x: Tensor,
-        event_mask: Tensor,
-        event_age: Tensor,
+        price_x: Optional[Tensor] = None,
+        event_x: Optional[Tensor] = None,
+        event_mask: Optional[Tensor] = None,
+        event_age: Optional[Tensor] = None,
         static_x: Optional[Tensor] = None,
+        feats: Optional[Dict[str, Tensor]] = None,
         return_aux: bool = False,
     ) -> Tensor | Tuple[Tensor, Dict[str, Tensor]]:
-        n = price_x.shape[0]
-        device = price_x.device
-        if static_x is None:
-            static_x = torch.zeros(n, 0, device=device)
+        """支持显式张量输入，也支持直接传 multicompose 的 feats dict。"""
+        if feats is not None:
+            price_x = feats.get("dailyset", price_x)
+            event_x = feats.get("eventvec", event_x)
+            event_mask = feats.get("eventmask", event_mask)
+            event_age = feats.get("eventage", event_age)
+            static_x = feats.get("static", static_x)
 
-        price_repr = self.price_encoder(price_x)
-        event_repr, event_attn, event_decay = self.event_encoder(event_x, event_mask, event_age, price_repr)
+        if price_x is None or event_x is None or event_mask is None or event_age is None:
+            raise ValueError("price_x/event_x/event_mask/event_age are required")
+
+        price_repr = self.market_encoder(price_x)
+        event_repr, event_aux = self.event_encoder(event_x, event_mask, event_age.long(), price_repr)
         gate = self.event_gate(torch.cat([price_repr, event_repr], dim=-1))
-        static_repr = self.static_encoder(static_x, batch_size=n, device=device)
 
         parts = [price_repr, gate * event_repr]
-        if static_repr.shape[-1] > 0:
-            parts.append(static_repr)
+        if self.static_encoder is not None:
+            if static_x is None:
+                static_x = torch.zeros(price_x.shape[0], self.static_dim, device=price_x.device, dtype=price_x.dtype)
+            parts.append(self.static_encoder(static_x))
 
         pred = self.head(self.fusion(torch.cat(parts, dim=-1))).squeeze(-1)
         if not return_aux:
             return pred
-        return pred, {
-            "price_repr": price_repr,
-            "event_repr": event_repr,
-            "event_gate": gate,
-            "event_attn": event_attn,
-            "event_decay": event_decay,
-        }
+        aux = {"event_gate": gate, **event_aux}
+        return pred, aux
 
 
 # ---------------------------------------------------------------------------
-# 损失函数和指标
+# losses / metrics
 # ---------------------------------------------------------------------------
 
 
 class DailyICLoss(nn.Module):
-    """单个日度横截面的 1 - Pearson IC。"""
+    """单日横截面 1 - Pearson IC。"""
 
     def __init__(self, eps: float = 1e-8):
         super().__init__()
@@ -282,14 +278,12 @@ class DailyICLoss(nn.Module):
             return pred.new_tensor(1.0)
         pred = pred - pred.mean()
         label = label - label.mean()
-        ic = (pred * label).mean() / (
-            pred.pow(2).mean().sqrt() * label.pow(2).mean().sqrt() + self.eps
-        )
+        ic = (pred * label).mean() / (pred.pow(2).mean().sqrt() * label.pow(2).mean().sqrt() + self.eps)
         return 1.0 - ic
 
 
 class PairwiseRankLoss(nn.Module):
-    """用于横截面选股的 pairwise logistic ranking loss。"""
+    """横截面 pairwise 排序损失。"""
 
     def __init__(self, max_pairs: int = 4096, margin_scale: float = 1.0):
         super().__init__()
@@ -312,23 +306,16 @@ class PairwiseRankLoss(nn.Module):
         neq = label[i] != label[j]
         if neq.sum() == 0:
             return pred.new_tensor(0.0)
-
         i = i[neq]
         j = j[neq]
         sign = torch.sign(label[i] - label[j])
         return F.softplus(-self.margin_scale * sign * (pred[i] - pred[j])).mean()
 
 
-class PEADLoss(nn.Module):
-    """Huber 回归 + daily IC + pairwise rank 的混合目标。"""
+class EREDLoss(nn.Module):
+    """Huber + IC + Rank 的轻量组合损失。"""
 
-    def __init__(
-        self,
-        huber_weight: float = 1.0,
-        ic_weight: float = 0.1,
-        rank_weight: float = 0.1,
-        huber_delta: float = 1.0,
-    ):
+    def __init__(self, huber_weight: float = 1.0, ic_weight: float = 0.1, rank_weight: float = 0.1, huber_delta: float = 1.0):
         super().__init__()
         self.huber_weight = float(huber_weight)
         self.ic_weight = float(ic_weight)
@@ -365,32 +352,24 @@ def daily_ic(pred: Tensor, label: Tensor, eps: float = 1e-8) -> Tensor:
         return pred.new_tensor(float("nan"))
     pred = pred - pred.mean()
     label = label - label.mean()
-    return (pred * label).mean() / (
-        pred.pow(2).mean().sqrt() * label.pow(2).mean().sqrt() + eps
-    )
+    return (pred * label).mean() / (pred.pow(2).mean().sqrt() * label.pow(2).mean().sqrt() + eps)
 
 
-@torch.no_grad()
-def daily_rank_ic(pred: Tensor, label: Tensor) -> Tensor:
-    pred = pred.reshape(-1)
-    label = label.reshape(-1)
-    valid = finite_mask(pred, label)
-    pred = pred[valid]
-    label = label[valid]
-    if pred.numel() < 2:
-        return pred.new_tensor(float("nan"))
-    pred_rank = torch.argsort(torch.argsort(pred)).float()
-    label_rank = torch.argsort(torch.argsort(label)).float()
-    return daily_ic(pred_rank, label_rank)
+# 兼容旧命名
+PEADLoss = EREDLoss
+PriceEncoder = MarketFeatureEncoder
+EventEncoder = FundamentalEventEncoder
 
 
 __all__ = [
     "DailyICLoss",
+    "EREDLoss",
     "EREDModel",
     "EventEncoder",
+    "FundamentalEventEncoder",
+    "MarketFeatureEncoder",
     "PEADLoss",
     "PairwiseRankLoss",
     "PriceEncoder",
     "daily_ic",
-    "daily_rank_ic",
 ]
