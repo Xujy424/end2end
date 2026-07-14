@@ -441,6 +441,7 @@ class ERED_Arg(BaseArg):
                     "price_layers": 2,
                     "dropout": 0.3,
                     "static_dim": 0,
+                    "max_age_for_decay": 60.0,
                 },
                 "loss": {
                     # 保持和现有训练框架一致；若 loss registry 支持 ERED_Loss，可改成 ered。
@@ -543,5 +544,7 @@ if __name__ == '__main__':
     #     kwargs={'rolling_windows': windows}, 
     #     n_gpus=5)
     # plot_group_ret(ensemble_df, label_df, name='Bagging', perf_path=args.training)
+
+
 
 
