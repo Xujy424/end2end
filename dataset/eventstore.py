@@ -46,7 +46,7 @@ class PITEventStore:
         self.path = Path(data_path)
         self.max_events = int(max_events)
 
-        self.event_x = np.memmap(self.path / "event_x.bin", mode="r", shape=(226645, 19), dtype=float)
+        self.event_x = np.memmap(self.path / "event_x.bin", mode="r", shape=(226645, 43), dtype=float)
         self.event_tick = np.memmap(self.path / "event_tick.bin", mode="r", shape=(226645,), dtype=np.int64)
         self.event_effective_idx = np.memmap(self.path / "event_effective_idx.bin", mode="r", shape=(226645,), dtype=np.int64)
 
