@@ -46,14 +46,43 @@ class GRU_Arg(BaseArg):
         'close2open','high2open','low2open','high2low','high2close','low2close',
     ]
     m_fields = ['close2dopen','high2dopen','low2dopen','ppos','volume_adj2rollmean','amount2rollmean']
+    # event_fields = [
+    #     'ROETTM', 'ROICTTM', 'GrossIncomeRatioTTM', 'NetProfitRatioTTM',
+    #     'PeriodCostsRateTTM', 'AdminiExpenseRateTTM',
+    #     'TotalAssetTRateTTM', 'ARTRate', 'InventoryTRate',
+    #     'DebtAssetsRatio', 'LongDebtRatio',
+    #     'NPParentCompanyCutYOY', 'TotalAssetGrowRate', 'NetOperateCashFlowYOY',
+    #     'NOCFToOperatingNITTM', 'SaleServiceCashToORTTM', 'OperCashInToAsset',
+    #     'FixAssetRatio', 'IntangibleAssetRatio',
+    # ]
+    delta_cols = [
+        'EPSTTM',
+        'ROETTM',
+        'ROICTTM',
+        'GrossIncomeRatioTTM',
+        'NetProfitRatioTTM',
+        'PeriodCostsRateTTM',
+        'AdminiExpenseRateTTM',
+        'TotalAssetTRateTTM',
+        'ARTRate',
+        'InventoryTRate',
+        'DebtAssetsRatio',
+        'LongDebtRatio',
+        'NOCFToOperatingNITTM',
+        'SaleServiceCashToORTTM',
+        'OperCashInToAsset',
+        'FixAssetRatio',
+        'IntangibleAssetRatio',
+    ]
+    sue_base_cols = ['or','op','tp','np','roe','eps']
     f_fields = [
-        'ROETTM', 'ROICTTM', 'GrossIncomeRatioTTM', 'NetProfitRatioTTM',
-        'PeriodCostsRateTTM', 'AdminiExpenseRateTTM',
-        'TotalAssetTRateTTM', 'ARTRate', 'InventoryTRate',
-        'DebtAssetsRatio', 'LongDebtRatio',
-        'NPParentCompanyCutYOY', 'TotalAssetGrowRate', 'NetOperateCashFlowYOY',
-        'NOCFToOperatingNITTM', 'SaleServiceCashToORTTM', 'OperCashInToAsset',
-        'FixAssetRatio', 'IntangibleAssetRatio',
+        'NPParentCompanyCutYOY','TotalAssetGrowRate','NetOperateCashFlowYOY'
+    ]+[
+        c+'_yoy' for c in delta_cols
+    ]+[
+        c+'_qoq' for c in delta_cols
+    ]+[
+        c+'_sue' for c in sue_base_cols
     ]
 
     def get_default_config(self):
@@ -124,7 +153,7 @@ class GRU_Arg(BaseArg):
             "optimizer": {
                 "name": "adamw",
                 "optim_params": {
-                    "lr": 1e-3,
+                    "lr": 1e-4,
                     "weight_decay": 1e-4,
                     "eps": 1e-8
                 },
@@ -136,7 +165,7 @@ class GRU_Arg(BaseArg):
                 "sched_params": {
                     "mode": "min",
                     "factor": 0.5,
-                    "patience": 4
+                    "patience": 2
                 },
                 "warmup":{
                     'enabled': False,
