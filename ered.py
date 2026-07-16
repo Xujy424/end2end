@@ -298,16 +298,8 @@ class ERED_Arg(BaseArg):
         'close_pct','open_pct','high_pct','low_pct','logvolume_pct','turnover_pct',
         'close2open','high2open','low2open','high2low','high2close','low2close',
     ]
-    # event_fields = [
-    #     'ROETTM', 'ROICTTM', 'GrossIncomeRatioTTM', 'NetProfitRatioTTM',
-    #     'PeriodCostsRateTTM', 'AdminiExpenseRateTTM',
-    #     'TotalAssetTRateTTM', 'ARTRate', 'InventoryTRate',
-    #     'DebtAssetsRatio', 'LongDebtRatio',
-    #     'NPParentCompanyCutYOY', 'TotalAssetGrowRate', 'NetOperateCashFlowYOY',
-    #     'NOCFToOperatingNITTM', 'SaleServiceCashToORTTM', 'OperCashInToAsset',
-    #     'FixAssetRatio', 'IntangibleAssetRatio',
-    # ]
-    delta_cols = [
+
+    delta_cols1 = [
         'EPSTTM',
         'ROETTM',
         'ROICTTM',
@@ -315,9 +307,6 @@ class ERED_Arg(BaseArg):
         'NetProfitRatioTTM',
         'PeriodCostsRateTTM',
         'AdminiExpenseRateTTM',
-        'TotalAssetTRateTTM',
-        'ARTRate',
-        'InventoryTRate',
         'DebtAssetsRatio',
         'LongDebtRatio',
         'NOCFToOperatingNITTM',
@@ -326,13 +315,26 @@ class ERED_Arg(BaseArg):
         'FixAssetRatio',
         'IntangibleAssetRatio',
     ]
+    delta_cols2 = [
+        'TotalAssetTRateTTM',
+        'ARTRate',
+        'InventoryTRate',
+    ]
     sue_base_cols = ['or','op','tp','np','roe','eps']
-    event_fields = [
-        'NPParentCompanyCutYOY','TotalAssetGrowRate','NetOperateCashFlowYOY'
+    feat_cols = [
+        'eps','roe',
+        'EPSTTM','ROETTM', 'ROICTTM', 'GrossIncomeRatioTTM', 'NetProfitRatioTTM',
+        'PeriodCostsRateTTM', 'AdminiExpenseRateTTM',
+        'TotalAssetTRateTTM', 'ARTRate', 'InventoryTRate',
+        'DebtAssetsRatio', 'LongDebtRatio', 
+        'NPParentCompanyCutYOY', 'TotalAssetGrowRate', 'NetOperateCashFlowYOY',   # 已经包含的同比变化
+        'NOCFToOperatingNITTM', 'SaleServiceCashToORTTM', 'OperCashInToAsset',
+        'FixAssetRatio', 'IntangibleAssetRatio',
+    ]
+    event_fields = feat_cols+[
+        c+'_yoy' for c in delta_cols1+delta_cols2
     ]+[
-        c+'_yoy' for c in delta_cols
-    ]+[
-        c+'_qoq' for c in delta_cols
+        c+'_qoq' for c in delta_cols1+delta_cols2
     ]+[
         c+'_sue' for c in sue_base_cols
     ]
