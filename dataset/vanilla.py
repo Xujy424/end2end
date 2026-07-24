@@ -12,7 +12,7 @@ import functools
 # 【第一层】公共基类：所有数据集共用（无差异代码）
 # ==========================================
 class BaseDataset(Dataset):
-    root = Path('/data/xujiayi/end2end/')
+    root = Path('/data/xujiayi/xjy/')
 
     _axis_loaded = False
     _dates = None

@@ -84,7 +84,7 @@ class GRU_Arg(BaseArg):
                         "shared_param_dict" : {
                             "start_date": "2013-01-01",
                             "end_date": "2025-12-31",
-                            "label": "Yyeo.10D",
+                            "label": "y10_peer_zscore",
                             "mode": "universe",
                             "pool_name": None,
                             "fix_stock": None,

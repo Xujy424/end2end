@@ -48,11 +48,11 @@ def rankIC(y_, y):
     return rank_ics
 
     
-data_path = "0_result/ered/rolling/"
-pred = pd.read_csv("/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/ered/rolling/alpha_merge_20210104_20251231.csv", index_col=0)
-dates = np.load('/data/xujiayi/end2end/axis/dates.npy', allow_pickle=True)
-ticks = np.load('/data/xujiayi/end2end/axis/ticks.npy', allow_pickle=True)
-label = np.memmap('/data/xujiayi/end2end/label/Y.10D.bin', dtype=float, mode='r', shape=(len(dates), len(ticks))) 
+data_path = "0_result/gru/rolling/"
+pred = pd.read_csv("/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/rolling/alpha_merge_20210104_20251231.csv", index_col=0)
+dates = np.load('/data/xujiayi/xjy/axis/dates.npy', allow_pickle=True)
+ticks = np.load('/data/xujiayi/xjy/axis/ticks.npy', allow_pickle=True)
+label = np.memmap('/data/xujiayi/xjy/label/y10_neutral.bin', dtype=float, mode='r', shape=(len(dates), len(ticks))) 
 label = label[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2025-12-31'))]
 # pred = pred.loc[pred.index>='2020-01-01']
 
