@@ -84,7 +84,7 @@ class GRU_Arg(BaseArg):
                         "shared_param_dict" : {
                             "start_date": "2013-01-01",
                             "end_date": "2025-12-31",
-                            "label": "y10_peer_zscore",
+                            "label": "y10_peer_zscore1",
                             "mode": "universe",
                             "pool_name": None,
                             "fix_stock": None,
@@ -186,6 +186,7 @@ if __name__ == '__main__':
         'rolling_gap': 1,
     }
     windows,_ = get_rolling_windows(**window_params)
+    print(windows)
 
     trainer2 = RollingSuperviseTrainer(args, model_class, windows)
     trainer2.set_seed(args.training.seed)
