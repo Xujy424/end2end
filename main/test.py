@@ -53,17 +53,17 @@ data_path = "0_result/gru/rolling/"
 dates = np.load('/data/xujiayi/xjy/axis/dates.npy', allow_pickle=True)
 ticks = np.load('/data/xujiayi/xjy/axis/ticks.npy', allow_pickle=True)
 
-pred = pd.read_csv("/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/rolling/alpha_merge_20210104_20251231.csv", index_col=0)
+pred = pd.read_csv("/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/rolling/alpha_merge_20210104_20260724.csv", index_col=0)
 peer_mean = np.memmap('/data/xujiayi/xjy/label/peer_mean_arr.bin', dtype=float, mode='r', shape=(len(dates), len(ticks))) 
-peer_mean = peer_mean[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2025-12-31'))]
+peer_mean = peer_mean[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2026-07-24'))]
 peer_std = np.memmap('/data/xujiayi/xjy/label/peer_std_arr.bin', dtype=float, mode='r', shape=(len(dates), len(ticks))) 
-peer_std = peer_std[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2025-12-31'))]
+peer_std = peer_std[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2026-07-24'))]
 pred = pred * peer_std * np.sqrt(10) + peer_mean*10
 
-pred.to_csv("/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/rolling/pred.csv")
+pred.to_csv("/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/rolling/pred20260724.csv")
 
 label = np.memmap('/data/xujiayi/xjy/label/Y.10D.bin', dtype=float, mode='r', shape=(len(dates), len(ticks))) 
-label = label[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2025-12-31'))]
+label = label[bisect.bisect_left(dates, pd.to_datetime('2021-01-01')):bisect.bisect_right(dates, pd.to_datetime('2026-07-24'))]
 # pred = pred.loc[pred.index>='2020-01-01']
 
 rankics, ics = rankIC(pred,label), IC(pred,label)
