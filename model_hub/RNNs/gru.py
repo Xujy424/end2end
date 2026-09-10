@@ -170,35 +170,35 @@ if __name__ == '__main__':
     args = args_class()
     print(args.model.params)
 
-    # trainer1 = BasicSuperviseTrainer(args, model_class)
-    # trainer1.train(save_loss=True)
-    # _, pred_df, label_df = trainer1.inference()
-    # trainer1.plot_cumsumIC(pred_df, label_df, name='Inference')
-    # trainer1.plot_group_ret(pred_df, label_df, name='Inference')
+    trainer1 = BasicSuperviseTrainer(args, model_class)
+    trainer1.train(save_loss=True)
+    _, pred_df, label_df = trainer1.inference()
+    trainer1.plot_cumsumIC(pred_df, label_df, name='Inference')
+    trainer1.plot_group_ret(pred_df, label_df, name='Inference')
 
 
-    window_params = {
-        'start_dt': '2013-01-01',
-        'end_dt': '2026-07-24',
-        'train_len': 7,
-        'valid_len': 1,
-        'test_len': 1,
-        'rolling_gap': 1,
-    }
-    windows,_ = get_rolling_windows(**window_params)
-    print(windows)
+    # window_params = {
+    #     'start_dt': '2013-01-01',
+    #     'end_dt': '2026-07-24',
+    #     'train_len': 7,
+    #     'valid_len': 1,
+    #     'test_len': 1,
+    #     'rolling_gap': 1,
+    # }
+    # windows,_ = get_rolling_windows(**window_params)
+    # print(windows)
 
-    trainer2 = RollingSuperviseTrainer(args, model_class, windows)
-    trainer2.set_seed(args.training.seed)
-    pred_df, label_df = trainer2.train()
-    trainer2.plot_group_ret(pred_df, label_df, name='Merge')
-    trainer2.plot_cumsumIC(pred_df, label_df, name='Merge')
+    # trainer2 = RollingSuperviseTrainer(args, model_class, windows)
+    # trainer2.set_seed(args.training.seed)
+    # pred_df, label_df = trainer2.train()
+    # trainer2.plot_group_ret(pred_df, label_df, name='Merge')
+    # trainer2.plot_cumsumIC(pred_df, label_df, name='Merge')
 
-    _, pred_df, label_df = trainer2.inference(
-        date_range=(windows[0][2][0],windows[-1][2][1]),
-    )
-    trainer2.plot_group_ret(pred_df, label_df, name='Inference')
-    trainer2.plot_cumsumIC(pred_df, label_df, name='Inference')
+    # _, pred_df, label_df = trainer2.inference(
+    #     date_range=(windows[0][2][0],windows[-1][2][1]),
+    # )
+    # trainer2.plot_group_ret(pred_df, label_df, name='Inference')
+    # trainer2.plot_cumsumIC(pred_df, label_df, name='Inference')
     
 
     # from main.bagging import bagging_parallel
