@@ -1,12 +1,18 @@
 import numpy as np
 import torch
+from types import SimpleNamespace
 
 from training_v2.losses import (
     DifferentiableRankICLoss,
+    DomainProvider,
+    DomainWeightedRankICLoss,
+    IndustryDomainProvider,
+    IndexDomainProvider,
     PearsonICLoss,
     TemporalRankICLoss,
     neural_sort_rank,
     sigmoid_rank,
+    register_domain_provider,
 )
 from main.cross_validation_v2 import contiguous_kfold_indices, cross_sectional_zscore
 
@@ -59,3 +65,67 @@ def test_cross_sectional_zscore():
     normalized = cross_sectional_zscore(frame)
     assert np.allclose(normalized.mean(axis=1), 0.0)
     assert np.allclose(normalized.std(axis=1, ddof=0), 1.0)
+
+
+class _TestDomainProvider(DomainProvider):
+    def __init__(self, split=3):
+        self.split = split
+
+    def get(self, date, ticks):
+        left = np.arange(len(ticks)) < self.split
+        return {"left": left, "right": ~left}
+
+
+def test_domain_loss_accepts_registered_provider_and_equal_weights():
+    register_domain_provider("test", _TestDomainProvider)
+    loss = DomainWeightedRankICLoss(
+        domain_type="test", provider_params={"split": 3}, temperature=0.1
+    )
+    loss.configure_dataset(
+        SimpleNamespace(dates=np.array(["2024-01-02"]), ticks=np.arange(6).astype(str))
+    )
+    labels = torch.arange(6, dtype=torch.float32)
+    preds = labels.clone().requires_grad_(True)
+    value = loss(preds, labels, {"date_idx": [0], "tick_idxs": np.arange(6)})
+    assert value < 0
+    value.backward()
+    assert torch.isfinite(preds.grad).all()
+
+
+def _write_axes(root):
+    axis = root / "axis"
+    axis.mkdir()
+    np.save(axis / "dates.npy", np.array(["2024-01-02", "2024-01-03"]))
+    np.save(axis / "stock_ticks.npy", np.array(["A", "B", "C", "D"]))
+    return axis
+
+
+def test_industry_domain_provider_aligns_date_and_tickers(tmp_path):
+    axis = _write_axes(tmp_path)
+    masks = tmp_path / "masks"
+    masks.mkdir()
+    np.array([[1, 1, 2, np.nan], [2, 1, 2, 1]], dtype=np.float64).tofile(
+        masks / "industry.bin"
+    )
+    provider = IndustryDomainProvider(axis, masks)
+    result = provider.get("2024-01-03", ["D", "missing", "A", "C"])
+    assert result["1.0"].tolist() == [True, False, False, False]
+    assert result["2.0"].tolist() == [False, False, True, True]
+
+
+def test_index_domain_provider_builds_composite_domains(tmp_path):
+    axis = _write_axes(tmp_path)
+    masks = tmp_path / "masks"
+    masks.mkdir()
+    arrays = {
+        "hs300": [[1, 0, 0, 0], [0, 0, 0, 0]],
+        "zz500": [[0, 1, 0, 0], [0, 0, 0, 0]],
+        "zz1000": [[0, 0, 1, 0], [0, 0, 0, 0]],
+    }
+    for name, values in arrays.items():
+        np.asarray(values, dtype=bool).tofile(masks / f"{name}_mask.bin")
+    provider = IndexDomainProvider(axis, masks)
+    result = provider.get("2024-01-02", ["A", "B", "C", "D", "missing"])
+    assert result["zz800"].tolist() == [True, True, False, False, False]
+    assert result["zz1000"].tolist() == [False, False, True, False, False]
+    assert result["others"].tolist() == [False, False, False, True, False]

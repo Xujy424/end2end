@@ -1,4 +1,8 @@
-from .domain import DomainWeightedRankICLoss, IndexDomainProvider
+from .domain import (
+    DOMAIN_PROVIDERS, DomainProvider, DomainWeightedRankICLoss,
+    IndustryDomainProvider, IndexDomainProvider, build_domain_provider,
+    register_domain_provider,
+)
 from .rankic import (
     ContextLoss, DifferentiableRankICLoss, MSELoss, PearsonICLoss,
     neural_sort_rank, sigmoid_rank, weighted_corr,
@@ -24,8 +28,10 @@ def build_loss(name: str, params=None):
 
 
 __all__ = [
-    "ContextLoss", "DifferentiableRankICLoss", "DomainWeightedRankICLoss",
-    "IndexDomainProvider", "LOSS_REGISTRY", "MSELoss", "PearsonICLoss",
+    "ContextLoss", "DifferentiableRankICLoss", "DOMAIN_PROVIDERS", "DomainProvider",
+    "DomainWeightedRankICLoss", "IndustryDomainProvider", "IndexDomainProvider",
+    "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
+    "register_domain_provider",
     "TemporalRankICLoss", "build_loss", "neural_sort_rank", "sigmoid_rank",
     "weighted_corr",
 ]

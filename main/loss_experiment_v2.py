@@ -19,10 +19,22 @@ DEFAULT_LOSSES = {
         "name": "domain_rankic",
         "params": {
             "temperature": 0.01,
+            "domain_type": "index",
             "domains": ["zz800", "zz1000", "others"],
             "domain_weights": [0.025, 0.8, 0.175],
             "axis_root": "Z:/axis",
             "mask_root": "Z:/stock/index/mask",
+        },
+    },
+    "industry_rankic": {
+        "name": "domain_rankic",
+        "params": {
+            "temperature": 0.01,
+            "domain_type": "industry",
+            "provider_params": {
+                "axis_root": "Z:/axis",
+                "mask_root": "Z:/stock/mask",
+            },
         },
     },
     "temporal_rankic": {"name": "temporal_rankic", "params": {"temperature": 0.01, "turnover_rate": 0.1}},
