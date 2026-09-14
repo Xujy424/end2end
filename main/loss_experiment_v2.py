@@ -9,6 +9,9 @@ import pandas as pd
 from main.cross_validation_v2 import run_kfold_cv
 from training.metrics import IC, rankIC
 
+ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path('/data/shanghai/xujiayi/workflow/data/')
+
+
 
 DEFAULT_LOSSES = {
     "mse": {},
@@ -22,8 +25,8 @@ DEFAULT_LOSSES = {
             "domain_type": "index",
             "domains": ["zz800", "zz1000", "others"],
             "domain_weights": [0.025, 0.8, 0.175],
-            "axis_root": "Z:/axis",
-            "mask_root": "Z:/stock/index/mask",
+            "axis_root": ROOT/"axis",
+            "mask_root": ROOT/"stock/index/mask",
         },
     },
     "industry_rankic": {
@@ -32,8 +35,8 @@ DEFAULT_LOSSES = {
             "temperature": 0.01,
             "domain_type": "industry",
             "provider_params": {
-                "axis_root": "Z:/axis",
-                "mask_root": "Z:/stock/mask",
+                "axis_root": ROOT/"axis",
+                "mask_root": ROOT/"stock/mask",
             },
         },
     },

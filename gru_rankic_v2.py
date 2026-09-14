@@ -5,9 +5,13 @@ does not start a long-running experiment.
 """
 
 import argparse
+from pathlib import Path
 
 from main.loss_experiment_v2 import run_loss_comparison
 from model_hub.RNNs.gru import GRU_Arg, GRU_Model
+
+ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path('/data/shanghai/xujiayi/workflow/data/')
+
 
 
 def run_gru_loss_study(config_override=None, **experiment_kwargs):
@@ -37,12 +41,12 @@ def run_gru_domain_study(config_override=None, *, domain_types=("industry", "ind
     """Compare selectable domain schemes; newly registered providers work unchanged."""
     options = {
         "industry": {
-            "provider_params": {"axis_root": "Z:/axis", "mask_root": "Z:/stock/mask"},
+            "provider_params": {"axis_root": ROOT/"axis", "mask_root": ROOT/"stock/mask"},
         },
         "index": {
-            "domains": ("zz800", "zz1000", "others"),
+            "domains": ("hs300", "zz500", "zz1000", "others"),
             "domain_weights": (0.025, 0.8, 0.175),
-            "provider_params": {"axis_root": "Z:/axis", "mask_root": "Z:/stock/index/mask"},
+            "provider_params": {"axis_root": ROOT/"axis", "mask_root": ROOT/"stock/index/mask"},
         },
     }
     for name, overrides in (domain_options or {}).items():
