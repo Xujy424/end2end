@@ -10,7 +10,7 @@ from pathlib import Path
 from main.loss_experiment_v2 import run_loss_comparison
 from model_hub.RNNs.gru import GRU_Arg, GRU_Model
 
-ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path('/data/shanghai/xujiayi/workflow/data/')
+ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path('/data/xujiayi/end2end')
 
 
 
@@ -41,12 +41,12 @@ def run_gru_domain_study(config_override=None, *, domain_types=("industry", "ind
     """Compare selectable domain schemes; newly registered providers work unchanged."""
     options = {
         "industry": {
-            "provider_params": {"axis_root": ROOT/"axis", "mask_root": ROOT/"stock/mask"},
+            "provider_params": {"axis_root": ROOT /"axis", "mask_root": ROOT/"mask"},
         },
         "index": {
             "domains": ("hs300", "zz500", "zz1000", "others"),
             "domain_weights": (0.025, 0.8, 0.175),
-            "provider_params": {"axis_root": ROOT/"axis", "mask_root": ROOT/"stock/index/mask"},
+            "provider_params": {"axis_root": ROOT/"axis", "mask_root": ROOT/"mask"},
         },
     }
     for name, overrides in (domain_options or {}).items():
@@ -76,7 +76,7 @@ def run_gru_turnover_study(config_override=None, *, turnover_rates=(0.05, 0.1, 0
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="GRU RankIC v2 experiment entry point")
-    parser.add_argument("--study", choices=("all", "domain", "turnover"), default="all")
+    parser.add_argument("--study", choices=("all", "domain", "turnover"), default="domain")
     parser.add_argument("--domain", action="append", dest="domains",
                         help="domain provider to test; repeat for multiple providers")
     parser.add_argument("--folds", type=int, default=4)

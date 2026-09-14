@@ -26,7 +26,7 @@ DEFAULT_LOSSES = {
             "domains": ["zz800", "zz1000", "others"],
             "domain_weights": [0.025, 0.8, 0.175],
             "axis_root": ROOT/"axis",
-            "mask_root": ROOT/"stock/index/mask",
+            "mask_root": ROOT/"mask",
         },
     },
     "industry_rankic": {
@@ -36,7 +36,7 @@ DEFAULT_LOSSES = {
             "domain_type": "industry",
             "provider_params": {
                 "axis_root": ROOT/"axis",
-                "mask_root": ROOT/"stock/mask",
+                "mask_root": ROOT/"mask",
             },
         },
     },
@@ -61,8 +61,8 @@ def run_loss_comparison(
     model_class,
     *,
     loss_configs=None,
-    train_val_range=("2018-01-01", "2021-12-31"),
-    prediction_range=("2022-01-01", "2026-03-31"),
+    train_val_range=("2020-01-01", "2024-12-31"),
+    prediction_range=("2025-01-01", "2026-07-15"),
     folds=4,
 ):
     """Callable experiment wrapper; importing this module never starts training."""

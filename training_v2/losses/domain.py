@@ -10,6 +10,9 @@ from torch import Tensor
 
 from .rankic import DifferentiableRankICLoss
 
+ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path('/data/xujiayi/end2end')
+
+
 
 class DomainProvider(ABC):
     """Map a date and ticker cross-section to named boolean domains."""
@@ -39,10 +42,10 @@ def build_domain_provider(name: str, params=None) -> DomainProvider:
 
 
 class _AlignedBinaryProvider(DomainProvider):
-    def __init__(self, axis_root="Z:/axis", ticks_file="stock_ticks.npy"):
+    def __init__(self, axis_root=ROOT/"axis", ticks_file="ticks.npy"):
         self.axis_root = Path(axis_root)
-        self.dates = np.load(self.axis_root / "dates.npy", allow_pickle=False).astype(str)
-        self.ticks = np.load(self.axis_root / ticks_file, allow_pickle=False).astype(str)
+        self.dates = np.load(self.axis_root / "dates.npy", allow_pickle=True).astype(str)
+        self.ticks = np.load(self.axis_root / ticks_file, allow_pickle=True).astype(str)
         self.shape = (len(self.dates), len(self.ticks))
         self.date_lookup = {value: index for index, value in enumerate(self.dates) if value != "NaT"}
         self.tick_lookup = {value: index for index, value in enumerate(self.ticks)}
@@ -58,8 +61,8 @@ class _AlignedBinaryProvider(DomainProvider):
 class IndexDomainProvider(_AlignedBinaryProvider):
     """Build index-universe domains from aligned constituent mask files."""
 
-    def __init__(self, axis_root="Z:/axis", mask_root="Z:/stock/index/mask",
-                 domains=("zz800", "zz1000", "others"), ticks_file="stock_ticks.npy"):
+    def __init__(self, axis_root=ROOT/"axis", mask_root=ROOT/"mask",
+                 domains=("hs300", "zz500", "zz1000", "others"), ticks_file="ticks.npy"):
         super().__init__(axis_root, ticks_file)
         self.mask_root = Path(mask_root)
         self.domains = tuple(domains)
@@ -86,8 +89,8 @@ class IndexDomainProvider(_AlignedBinaryProvider):
 class IndustryDomainProvider(_AlignedBinaryProvider):
     """Build one domain per industry code from an aligned numeric mask file."""
 
-    def __init__(self, axis_root="Z:/axis", mask_root="Z:/stock/mask", domains=None,
-                 mask_file="industry.bin", dtype="float64", ticks_file="stock_ticks.npy"):
+    def __init__(self, axis_root=ROOT/"axis", mask_root=ROOT/"mask", domains=None,
+                 mask_file="industry.bin", dtype="float64", ticks_file="ticks.npy"):
         super().__init__(axis_root, ticks_file)
         self.mask_root = Path(mask_root)
         self.domains = None if domains is None else tuple(domains)
