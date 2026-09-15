@@ -9,6 +9,7 @@ from .rankic import (
 )
 from .temporal import TemporalRankICLoss
 
+
 LOSS_REGISTRY = {
     "mse": MSELoss,
     "ic": PearsonICLoss,

@@ -1,3 +1,14 @@
+'''
+DomainProvider (ABC)                      ← 抽象基类，定义接口
+   ├── _AlignedBinaryProvider             ← 公共底座：加载日期/股票轴，做索引对齐
+   │      ├── IndexDomainProvider         ← 按指数成分生成 mask
+   │      └── IndustryDomainProvider      ← 按行业代码生成 mask
+   └── (未来可扩展：概念、相似度等)
+
+DOMAIN_PROVIDERS / register_domain_provider / build_domain_provider  ← 注册表 + 工厂，按名字创建 Provider
+'''
+
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
