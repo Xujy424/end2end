@@ -19,6 +19,9 @@ def run_index_domain_rankic_10d_return_supervised(
     device="cuda:0",
     num_epoch=None,
     output_name="index_domain_rankic_10d_return_supervised_2016_2025",
+    train_range=("2016-01-01", "2022-12-31"),
+    valid_range=("2023-01-01", "2024-12-31"),
+    test_range=("2025-01-01", "2025-12-31"),
 ):
     config_override = {
         "training": {
@@ -40,6 +43,9 @@ def run_index_domain_rankic_10d_return_supervised(
         framework="supervise",
         loss="domain_index",
         config_override=config_override,
+        train_range=train_range,
+        valid_range=valid_range,
+        test_range=test_range,
         loss_params={
             "domains": ["zz800", "zz1000", "others"],
             "domain_weights": [0.025, 0.8, 0.175],
@@ -71,6 +77,7 @@ def run_index_domain_rankic_10d_return_supervised(
 
 if __name__ == "__main__":
     run_index_domain_rankic_10d_return_supervised()
+
 
 
 
