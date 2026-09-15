@@ -23,26 +23,16 @@ class GRUConfig(BaseConfig):
                 "batch_size": 1,
                 "early_stop_patience": 3,
                 "early_stop_delta": 0,
-                "period": {
-                    "train_start": "2013-01-01",
-                    "train_end": "2022-12-31",
-                    "valid_start": "2023-01-01",
-                    "valid_end": "2023-12-31",
-                    "test_start": "2024-01-01",
-                    "test_end": "2024-12-31",
-                },
                 "dataset": {
                     "name": "datapool_daily",
                     "params": {
                         "shared_param_dict": {
-                            "start_date": "2013-01-01",
-                            "end_date": "2025-12-31",
                             "label": "y10_peer_zscore1",
                             "mode": "universe",
                             "pool_name": None,
                             "fix_stock": None,
                             "sample_size": None,
-                            "nanflit_set": ["dailyset", "minuteset", "timecode"],
+                            "nanflit_set": ["dailyset"],
                         },
                         "specified_param_dict": {
                             "dailyset": {
@@ -118,4 +108,5 @@ class GRUModel(nn.Module):
 
 GRU_Arg = GRUConfig
 GRU_Model = GRUModel
+
 

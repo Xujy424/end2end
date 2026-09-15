@@ -24,19 +24,9 @@ def run_index_domain_rankic_10d_return_supervised(
         "training": {
             "device": device,
             "perf_path": perf_path,
-            "period": {
-                "train_start": "2016-01-01",
-                "train_end": "2022-12-31",
-                "valid_start": "2023-01-01",
-                "valid_end": "2024-12-31",
-                "test_start": "2025-01-01",
-                "test_end": "2025-12-31",
-            },
             "dataset": {
                 "params": {
                     "shared_param_dict": {
-                        "start_date": "2016-01-01",
-                        "end_date": "2025-12-31",
                         "label": "Y.10D",
                     }
                 }
@@ -81,4 +71,5 @@ def run_index_domain_rankic_10d_return_supervised(
 
 if __name__ == "__main__":
     run_index_domain_rankic_10d_return_supervised()
+
 

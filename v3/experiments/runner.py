@@ -33,11 +33,21 @@ def summarize_prediction(prediction: pd.DataFrame, label: pd.DataFrame) -> dict[
     }
 
 
-def run_supervise(args, model_class, *, loss_config=None, prediction_range=None, run_name=None):
+def run_supervise(
+    args,
+    model_class,
+    *,
+    loss_config=None,
+    train_range=None,
+    valid_range=None,
+    test_range=None,
+    prediction_range=None,
+    run_name=None,
+):
     run_args = apply_loss_config(args, loss_config)
     trainer = SupervisedTrainerV3(run_args, model_class, run_name=run_name)
-    history = trainer.fit()
-    pred, label = trainer.predict(prediction_range, save=True)
+    history = trainer.fit(train_range=train_range, valid_range=valid_range)
+    pred, label = trainer.predict(prediction_range or test_range, save=True)
     return pred, label, [history]
 
 
@@ -58,3 +68,4 @@ def result_dir(args, *parts) -> Path:
         path = path / str(part)
     path.mkdir(parents=True, exist_ok=True)
     return path
+

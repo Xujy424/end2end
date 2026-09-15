@@ -49,32 +49,6 @@ def loss_config(name_or_config="rankic", **params):
         config = deepcopy(LOSS_PRESETS[name_or_config])
     config.setdefault("params", {}).update(params)
     return config
-
-
-def period_config(
-    *,
-    train_start=None,
-    train_end=None,
-    valid_start=None,
-    valid_end=None,
-    test_start=None,
-    test_end=None,
-):
-    values = {
-        key: value
-        for key, value in {
-            "train_start": train_start,
-            "train_end": train_end,
-            "valid_start": valid_start,
-            "valid_end": valid_end,
-            "test_start": test_start,
-            "test_end": test_end,
-        }.items()
-        if value is not None
-    }
-    return {"training": {"period": values}} if values else {}
-
-
 def run_gru(
     *,
     framework="supervise",
@@ -98,25 +72,29 @@ def run_gru(
     return run_training(args, GRUModel, framework=framework, loss_config=selected_loss, run_name=selected_loss["name"], **kwargs)
 
 
-def run_rankic_kfold_5():
-    return run_gru(framework="kfold", loss="rankic", folds=5)
+def run_rankic_kfold_5(train_val_range, prediction_range):
+    return run_gru(framework="kfold", loss="rankic", folds=5, train_val_range=train_val_range, prediction_range=prediction_range)
 
 
-def run_domain_rolling():
-    return run_gru(framework="rolling", loss="domain_industry")
+def run_domain_rolling(rolling_windows):
+    return run_gru(framework="rolling", loss="domain_industry", rolling_windows=rolling_windows)
 
 
-def run_rankic_gridsearch():
+def run_rankic_gridsearch(train_val_range, prediction_range):
     return run_gru(
         framework="kfold",
         loss="rankic",
         ensemble="gridsearch",
         folds=5,
         grid={"temperature": [0.005, 0.01, 0.02], "method": ["sigmoid", "neural"]},
+        train_val_range=train_val_range,
+        prediction_range=prediction_range,
     )
 
 
 if __name__ == "__main__":
     # Keep this file runnable for smoke usage, but production runs should call
     # run_gru(...) with explicit keyword arguments from notebooks or job scripts.
-    run_rankic_kfold_5()
+    raise RuntimeError("Call run_gru(...) with explicit date ranges from a job script or notebook.")
+
+

@@ -26,9 +26,8 @@ def cross_sectional_zscore(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_range=None, folds=5, loss_config=None, run_name=None, standardize=True):
-    period = args.training.period
-    train_val_range = train_val_range or (period.train_start, period.valid_end)
-    prediction_range = prediction_range or (period.test_start, period.test_end)
+    if train_val_range is None or prediction_range is None:
+        raise ValueError("run_kfold_supervise requires train_val_range and prediction_range")
     sample_count = _sample_count(args, train_val_range)
     predictions, histories, label_df = [], [], None
     base_name = run_name or args.model.loss.name
@@ -67,8 +66,7 @@ def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_r
 
 def _sample_count(args, date_range):
     params = copy.deepcopy(args.training.dataset.params)
-    params.shared_param_dict.start_date = date_range[0]
-    params.shared_param_dict.end_date = date_range[1]
-    return len(DATASET_DICT[args.training.dataset.name](**params))
+    return len(DATASET_DICT[args.training.dataset.name](start_date=date_range[0], end_date=date_range[1], **params))
+
 
 

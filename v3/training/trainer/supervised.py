@@ -45,15 +45,13 @@ class SupervisedTrainerV3:
 
     def _dataset(self, start_date, end_date):
         params = copy.deepcopy(self.args.training.dataset.params)
-        params.shared_param_dict.start_date = start_date
-        params.shared_param_dict.end_date = end_date
-        return DATASET_DICT[self.args.training.dataset.name](**params)
+        return DATASET_DICT[self.args.training.dataset.name](start_date=start_date, end_date=end_date, **params)
 
     def make_loader(self, start_date, end_date, *, shuffle=False, indices=None):
         if getattr(self.loss, "requires_ordered_batches", False) and shuffle:
             raise ValueError("Temporal RankIC requires chronological batches; shuffle must be False")
         if int(self.args.training.batch_size) != 1:
-            raise ValueError("V3 requires batch_size=1: one daily N鑴砊鑴矲 cross-section")
+            raise ValueError("V3 requires batch_size=1: one daily N闂佺厧顕悥锕傛煠鐎靛摜鍙?cross-section")
         dataset = self._dataset(start_date, end_date)
         loader_dataset = Subset(dataset, list(indices)) if indices is not None else dataset
         workers = int(self.args.training.get("num_workers", 0))
@@ -132,12 +130,12 @@ class SupervisedTrainerV3:
         if training and getattr(self.loss, "requires_epoch_update", False) and values:
             self._optimizer_step()
         return float(np.mean(values)) if values else float("nan")
-
-    def fit(self, train_loader=None, valid_loader=None, save_loss=True):
-        period = self.args.training.period
+    def fit(self, train_loader=None, valid_loader=None, save_loss=True, train_range=None, valid_range=None):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
-        train_loader = train_loader or self.make_loader(period.train_start, period.train_end, shuffle=not ordered)
-        valid_loader = valid_loader or self.make_loader(period.valid_start, period.valid_end)
+        if train_range is None or valid_range is None:
+            raise ValueError("fit requires explicit train_range and valid_range")
+        train_loader = train_loader or self.make_loader(*train_range, shuffle=not ordered)
+        valid_loader = valid_loader or self.make_loader(*valid_range)
         stopper = EarlyStopping(self.args.training.early_stop_patience, self.args.training.early_stop_delta)
         records = []
         for epoch in range(int(self.args.training.num_epoch)):
@@ -159,8 +157,9 @@ class SupervisedTrainerV3:
         module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
         module.load_state_dict(torch.load(Path(model_path or self.model_path), map_location=self.device))
         module.eval()
-        period = self.args.training.period
-        loader = self.make_loader(*(date_range or (period.test_start, period.test_end)))
+        if date_range is None:
+            raise ValueError("predict requires explicit date_range")
+        loader = self.make_loader(*date_range)
         dataset = loader.dataset
         preds = np.full((len(dataset.dates), len(dataset.ticks)), np.nan)
         labels = np.full_like(preds, np.nan)
@@ -178,5 +177,8 @@ class SupervisedTrainerV3:
             pred_df.to_csv(self.perf_dir / "alpha.csv")
             label_df.to_csv(self.perf_dir / "label.csv")
         return pred_df, label_df
+
+
+
 
 

@@ -33,15 +33,7 @@ def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, 
 def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_params=None, loss_config=None, run_name=None):
     if rolling_windows is None:
         if window_params is None:
-            period = args.training.period
-            window_params = {
-                "start_dt": period.train_start,
-                "end_dt": period.test_end,
-                "train_len": args.training.get("rolling_train_len", 7),
-                "valid_len": args.training.get("rolling_valid_len", 1),
-                "test_len": args.training.get("rolling_test_len", 1),
-                "rolling_gap": args.training.get("rolling_gap", 1),
-            }
+            raise ValueError("run_rolling_supervise requires rolling_windows or window_params")
         rolling_windows = get_rolling_windows(**window_params)
     predictions, labels, histories = [], [], []
     base_name = run_name or args.model.loss.name
@@ -50,11 +42,8 @@ def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_par
         if loss_config:
             fold_args.model.loss.name = loss_config.get("name", fold_args.model.loss.name)
             fold_args.model.loss.params = loss_config.get("params", {})
-        fold_args.training.period.train_start, fold_args.training.period.train_end = train_win
-        fold_args.training.period.valid_start, fold_args.training.period.valid_end = valid_win
-        fold_args.training.period.test_start, fold_args.training.period.test_end = test_win
         trainer = SupervisedTrainerV3(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
-        histories.append(trainer.fit())
+        histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))
         pred, label = trainer.predict(test_win, save=True)
         predictions.append(pred)
         labels.append(label)
@@ -65,4 +54,5 @@ def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_par
     pred_df.to_csv(out_dir / "alpha_rolling.csv")
     label_df.to_csv(out_dir / "label_rolling.csv")
     return pred_df, label_df, histories
+
 
