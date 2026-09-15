@@ -1,10 +1,21 @@
+from torch import nn
+
+
+class ContextLoss(nn.Module):
+    requires_ordered_batches = False
+    requires_epoch_update = False
+
+    def configure_dataset(self, dataset) -> None:
+        pass
+
+
 from .domain import (
     DOMAIN_PROVIDERS, DomainProvider, DomainWeightedRankICLoss,
     IndustryDomainProvider, IndexDomainProvider, build_domain_provider,
     register_domain_provider,
 )
 from .rankic import (
-    ContextLoss, DifferentiableRankICLoss, MSELoss, PearsonICLoss,
+    DifferentiableRankICLoss, MSELoss, PearsonICLoss,
     neural_sort_rank, sigmoid_rank, weighted_corr,
 )
 from .temporal import TemporalRankICLoss
@@ -32,7 +43,6 @@ __all__ = [
     "ContextLoss", "DifferentiableRankICLoss", "DOMAIN_PROVIDERS", "DomainProvider",
     "DomainWeightedRankICLoss", "IndustryDomainProvider", "IndexDomainProvider",
     "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
-    "register_domain_provider",
-    "TemporalRankICLoss", "build_loss", "neural_sort_rank", "sigmoid_rank",
-    "weighted_corr",
+    "register_domain_provider", "TemporalRankICLoss", "build_loss",
+    "neural_sort_rank", "sigmoid_rank", "weighted_corr",
 ]

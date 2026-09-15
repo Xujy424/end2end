@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 import torch
-from torch import Tensor, nn
+from torch import Tensor
 import torch.nn.functional as F
+
+from . import ContextLoss
 
 
 def finite_vectors(*values: Tensor) -> tuple[Tensor, ...]:
@@ -51,13 +53,6 @@ def neural_sort_rank(values: Tensor, temperature: float = 0.1) -> Tensor:
     return (permutation.T @ positions).reshape(-1)
 
 
-class ContextLoss(nn.Module):
-    requires_ordered_batches = False
-    requires_epoch_update = False
-
-    def configure_dataset(self, dataset) -> None:
-        pass
-
 
 class MSELoss(ContextLoss):
     def forward(self, preds: Tensor, labels: Tensor, context=None) -> Tensor:
@@ -96,3 +91,5 @@ class DifferentiableRankICLoss(ContextLoss):
 
     def forward(self, preds: Tensor, labels: Tensor, context=None) -> Tensor:
         return -self.correlation(preds, labels)
+
+
