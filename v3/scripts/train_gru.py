@@ -4,7 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Mapping
 
-from v3.experiments import run_bagging, run_gridsearch, run_training
+from v3.experiments import ENSEMBLE_REGISTRY, run_training
 from v3.models.gru import GRUConfig, GRUModel
 
 ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path("/data/shanghai/xujiayi/workflow/data/")
@@ -64,13 +64,16 @@ def run_gru(
 ):
     args = GRUConfig(config_override)
     selected_loss = loss_config(loss, **dict(loss_params or {}))
-    if framework in {"kfold", "cv", "cross_validation"}:
-        kwargs.setdefault("folds", folds)
-    if ensemble == "bagging":
-        return run_bagging(args, GRUModel, members=members, framework=framework, loss_config=selected_loss, **kwargs)
-    if ensemble == "gridsearch":
-        return run_gridsearch(args, GRUModel, grid or {}, framework=framework, base_loss_config=selected_loss, **kwargs)
-    return run_training(args, GRUModel, framework=framework, loss_config=selected_loss, run_name=selected_loss["name"], **kwargs)
+    kwargs.setdefault("folds", folds)
+    return ENSEMBLE_REGISTRY[ensemble](
+        args,
+        GRUModel,
+        framework=framework,
+        loss_config=selected_loss,
+        members=members,
+        grid=grid,
+        **kwargs,
+    )
 
 
 def run_rankic_kfold_5(train_val_range, prediction_range):
@@ -97,5 +100,9 @@ if __name__ == "__main__":
     # Keep this file runnable for smoke usage, but production runs should call
     # run_gru(...) with explicit keyword arguments from notebooks or job scripts.
     raise RuntimeError("Call run_gru(...) with explicit date ranges from a job script or notebook.")
+
+
+
+
 
 

@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from v3.dataset import DATASET_DICT, multi_collate_fn
 from v3.training.losses import build_loss
-from v3.training.optimizers import EarlyStopping, build_optimizer, build_scheduler
+from v3.training.optimizers import EarlyStopping, build_optimizer_bundle
 
 
 class SupervisedTrainerV3:
@@ -38,16 +38,10 @@ class SupervisedTrainerV3:
             self.args.model.loss.name, 
             self.args.model.loss.get("params", {})
         )
-        self.optimizer = build_optimizer(
-            self.args.optimizer.name, 
-            (p for p in self.model.parameters() if p.requires_grad), 
-            self.args.optimizer.optim_params
+        self.optimizer, self.scheduler = build_optimizer_bundle(
+            self.args.optimizer,
+            (p for p in self.model.parameters() if p.requires_grad),
         )
-        self.scheduler = build_scheduler(
-            self.args.optimizer.scheduler, 
-            self.optimizer, 
-            self.args.optimizer.sched_params
-        ) if self.args.optimizer.if_lr_decay else None
 
         suffix = run_name or self.args.model.loss.name
         self.perf_dir = Path(self.args.training.perf_path).expanduser() / self.args.model.name / "v3" / suffix
@@ -199,3 +193,25 @@ class SupervisedTrainerV3:
 
 
 
+
+
+
+def run_supervise(
+    args,
+    model_class,
+    *,
+    loss_config=None,
+    train_range=None,
+    valid_range=None,
+    test_range=None,
+    prediction_range=None,
+    run_name=None,
+):
+    run_args = copy.deepcopy(args)
+    if loss_config:
+        run_args.model.loss.name = loss_config.get("name", run_args.model.loss.name)
+        run_args.model.loss.params = loss_config.get("params", {})
+    trainer = SupervisedTrainerV3(run_args, model_class, run_name=run_name)
+    history = trainer.fit(train_range=train_range, valid_range=valid_range)
+    pred, label = trainer.predict(prediction_range or test_range, save=True)
+    return pred, label, [history]

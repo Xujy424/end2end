@@ -1,22 +1,12 @@
 from __future__ import annotations
 
-import copy
 from pathlib import Path
-from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
 
 from v3.training.metrics import IC, rankIC
-from v3.training.trainer import SupervisedTrainerV3, run_kfold_supervise, run_rolling_supervise
-
-
-def apply_loss_config(args, loss_config: Mapping[str, Any] | None = None):
-    run_args = copy.deepcopy(args)
-    if loss_config:
-        run_args.model.loss.name = loss_config.get("name", run_args.model.loss.name)
-        run_args.model.loss.params = loss_config.get("params", {})
-    return run_args
+from v3.training.trainer import TRAINER_REGISTRY
 
 
 def summarize_prediction(prediction: pd.DataFrame, label: pd.DataFrame) -> dict[str, float]:
@@ -33,33 +23,13 @@ def summarize_prediction(prediction: pd.DataFrame, label: pd.DataFrame) -> dict[
     }
 
 
-def run_supervise(
-    args,
-    model_class,
-    *,
-    loss_config=None,
-    train_range=None,
-    valid_range=None,
-    test_range=None,
-    prediction_range=None,
-    run_name=None,
-):
-    run_args = apply_loss_config(args, loss_config)
-    trainer = SupervisedTrainerV3(run_args, model_class, run_name=run_name)
-    history = trainer.fit(train_range=train_range, valid_range=valid_range)
-    pred, label = trainer.predict(prediction_range or test_range, save=True)
-    return pred, label, [history]
-
-
-def run_training(args, model_class, *, framework="supervise", loss_config=None, run_name=None, **kwargs):
-    framework = framework.lower()
-    if framework in {"supervise", "basic", "single"}:
-        return run_supervise(args, model_class, loss_config=loss_config, run_name=run_name, **kwargs)
-    if framework in {"rolling", "rolling_supervise"}:
-        return run_rolling_supervise(args, model_class, loss_config=loss_config, run_name=run_name, **kwargs)
-    if framework in {"kfold", "cv", "cross_validation"}:
-        return run_kfold_supervise(args, model_class, loss_config=loss_config, run_name=run_name, **kwargs)
-    raise ValueError(f"Unknown framework {framework!r}")
+def run_training(args, model_class, *, framework=None, loss_config=None, run_name=None, **kwargs):
+    key = (framework or args.training.get("framework", "supervise")).lower()
+    try:
+        trainer_fn = TRAINER_REGISTRY[key]
+    except KeyError as exc:
+        raise KeyError(f"Unknown training framework {key!r}; available: {sorted(TRAINER_REGISTRY)}") from exc
+    return trainer_fn(args, model_class, loss_config=loss_config, run_name=run_name, **kwargs)
 
 
 def result_dir(args, *parts) -> Path:
@@ -68,4 +38,3 @@ def result_dir(args, *parts) -> Path:
         path = path / str(part)
     path.mkdir(parents=True, exist_ok=True)
     return path
-

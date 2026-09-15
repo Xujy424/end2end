@@ -96,33 +96,22 @@ class BaseDataset(Dataset):
         except FileNotFoundError:
             return None
 
-    @staticmethod
-    def _block_kind(name: str, cfg: Mapping[str, Any]) -> str:
-        if "kind" in cfg:
-            return str(cfg["kind"]).lower()
-        if "freq" in cfg:
-            return "minute" if str(cfg["freq"]).lower() in {"minute", "intraday"} else "daily"
-        return "minute" if name == "minuteset" or str(name).startswith("minuteset") else "daily"
-
     @classmethod
     def _build_blocks(cls, specified: Mapping[str, Any]) -> dict[str, FeatureBlock]:
         blocks = {}
         for name, cfg in specified.items():
-            kind = cls._block_kind(str(name), cfg)
+            kind = str(cfg["kind"]).lower()
             if kind not in {"daily", "minute"}:
-                continue
-            default_path = "model_input/dGRU" if kind == "daily" else "m_essentials"
-            data_path = str(cfg.get("data_path", default_path)).replace(chr(92), "/").strip("/")
-            fields = tuple(str(field).strip().removesuffix(".bin") for field in cfg.get("fields", ()))
+                raise ValueError(f"Unsupported feature block kind {kind!r} for {name}")
+            data_path = str(cfg["data_path"]).replace(chr(92), "/").strip("/")
+            fields = tuple(str(field).strip().removesuffix(".bin") for field in cfg["fields"])
             normalized = tuple(field if "/" in field else f"{data_path}/{field}" for field in fields)
             blocks[str(name)] = FeatureBlock(
                 name=str(name),
                 fields=normalized,
-                lag=int(cfg.get("lag", 1) or 1),
+                lag=int(cfg.get("lag", 1)),
                 kind=kind,
             )
-        if not blocks:
-            raise ValueError("DataPool dataset needs at least one daily or minute feature block")
         return blocks
 
     def _select_candidate_ticks(self, date_idx: int) -> np.ndarray:
@@ -237,6 +226,9 @@ class FlattenDataset(BaseDataset):
             "date_idx": date_idx,
             "tick_idxs": tick,
         }
+
+
+
 
 
 
