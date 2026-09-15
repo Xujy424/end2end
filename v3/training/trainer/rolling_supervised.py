@@ -35,6 +35,7 @@ def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_par
         if window_params is None:
             raise ValueError("run_rolling_supervise requires rolling_windows or window_params")
         rolling_windows = get_rolling_windows(**window_params)
+
     predictions, labels, histories = [], [], []
     base_name = run_name or args.model.loss.name
     for idx, (train_win, valid_win, test_win) in enumerate(rolling_windows, start=1):
@@ -43,10 +44,10 @@ def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_par
             fold_args.model.loss.name = loss_config.get("name", fold_args.model.loss.name)
             fold_args.model.loss.params = loss_config.get("params", {})
         trainer = SupervisedTrainerV3(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
-        histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))
+        histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))  # loss_history frame
         pred, label = trainer.predict(test_win, save=True)
-        predictions.append(pred)
-        labels.append(label)
+        predictions.append(pred)  # frame
+        labels.append(label)      # frame
     pred_df = pd.concat(predictions).sort_index() if predictions else pd.DataFrame()
     label_df = pd.concat(labels).sort_index() if labels else pd.DataFrame()
     out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / base_name / "rolling"

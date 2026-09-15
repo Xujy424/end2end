@@ -121,19 +121,22 @@ class SupervisedTrainerV3:
         if training:
             self.optimizer.zero_grad(set_to_none=True)
         denominator = max(len(loader) - lag, 1) if ordered else max(len(loader), 1)
+
         for raw_batch in tqdm(loader, desc="Train" if training else "Valid"):
             batch = self._to_device(raw_batch)
             with torch.set_grad_enabled(training):
                 preds = self.model(batch["feats"]).reshape(-1)
+
                 context = {"date_idx": raw_batch["date_idx"], "tick_idxs": raw_batch["tick_idxs"]}
-                temporal = self._temporal_context(raw_batch, history[0]) if ordered and len(history) == lag else None
-                snapshot = {int(tick): pred.detach().cpu() for tick, pred in zip(np.asarray(raw_batch["tick_idxs"]).reshape(-1), preds)}
+                temporal = self._temporal_context(raw_batch, history[0]) if ordered and len(history) == lag else None   # 共同股票位置：共同股票预测值
+                snapshot = {int(tick): pred.detach().cpu() for tick, pred in zip(np.asarray(raw_batch["tick_idxs"]).reshape(-1), preds)}  # 当前股票idx：当前预测值
                 history.append(snapshot)
                 if ordered and temporal is None:
                     continue
                 if temporal:
-                    temporal = {key: item.to(self.device) for key, item in temporal.items()}
-                    context.update(temporal)
+                    temporal = {key: item.to(self.device) for key, item in temporal.items()}  # 搬到GPU
+                    context.update(temporal)   # date_idx, tick_idxs, current_indices, previous_preds
+
                 loss = self.loss(preds, batch["label"].reshape(-1), context)
                 if not torch.isfinite(loss):
                     raise FloatingPointError(f"Non-finite {type(self.loss).__name__}: {loss.item()}")
@@ -143,6 +146,7 @@ class SupervisedTrainerV3:
                     if not getattr(self.loss, "requires_epoch_update", False):
                         self._optimizer_step()
                 values.append(float(loss.detach()))
+
         if training and getattr(self.loss, "requires_epoch_update", False) and values:
             self._optimizer_step()
         return float(np.mean(values)) if values else float("nan")
@@ -180,11 +184,13 @@ class SupervisedTrainerV3:
         module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
         module.load_state_dict(torch.load(Path(model_path or self.model_path), map_location=self.device))
         module.eval()
+
         if date_range is None:
             raise ValueError("predict requires explicit date_range")
         dataset = self.make_dataset(date_range)
         loader = self.make_loader(dataset)
         dataset = loader.dataset
+
         preds = np.full((len(dataset.dates), len(dataset.ticks)), np.nan)
         labels = np.full_like(preds, np.nan)
         for raw_batch in tqdm(loader, desc="Predict"):
@@ -194,7 +200,8 @@ class SupervisedTrainerV3:
             ticks = np.asarray(raw_batch["tick_idxs"]).reshape(-1)
             preds[date_ids[0], ticks] = output
             labels[date_ids[0], ticks] = batch["label"].cpu().numpy().reshape(-1)
-        valid_dates = np.asarray(dataset.dates)[dataset.valid_date_mask]
+
+        valid_dates = np.asarray(dataset.dates)[dataset.valid_date_mask]  # 这里的validmask是不是不太需要
         pred_df = pd.DataFrame(preds, index=dataset.dates, columns=dataset.ticks).loc[valid_dates]
         label_df = pd.DataFrame(labels, index=dataset.dates, columns=dataset.ticks).loc[valid_dates]
         if save:
