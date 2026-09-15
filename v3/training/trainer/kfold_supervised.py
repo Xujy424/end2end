@@ -5,9 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from torch.utils.data import DataLoader, Subset
 
-from v3.dataset import DATASET_DICT, multi_collate_fn
 from v3.training.trainer.supervised import SupervisedTrainerV3
 
 
@@ -28,9 +26,9 @@ def cross_sectional_zscore(frame: pd.DataFrame) -> pd.DataFrame:
 def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_range=None, folds=5, loss_config=None, run_name=None, standardize=True):
     if train_val_range is None or prediction_range is None:
         raise ValueError("run_kfold_supervise requires train_val_range and prediction_range")
-    sample_count = _sample_count(args, train_val_range)
     predictions, histories, label_df = [], [], None
     base_name = run_name or args.model.loss.name
+    sample_count = _sample_count(args, model_class, train_val_range, loss_config)
     for fold, (train_idx, valid_idx) in enumerate(contiguous_kfold_indices(sample_count, folds), start=1):
         fold_args = copy.deepcopy(args)
         fold_args.training.seed = int(fold_args.training.seed) + fold - 1
@@ -38,22 +36,11 @@ def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_r
             fold_args.model.loss.name = loss_config.get("name", fold_args.model.loss.name)
             fold_args.model.loss.params = loss_config.get("params", {})
         trainer = SupervisedTrainerV3(fold_args, model_class, run_name=f"{base_name}/kfold/fold_{fold:02d}")
-        dataset = trainer._dataset(*train_val_range)
+        dataset = trainer.make_dataset(train_val_range)
         ordered = getattr(trainer.loss, "requires_ordered_batches", False)
-        workers = int(fold_args.training.get("num_workers", 0))
-        opts = dict(
-            batch_size=1,
-            num_workers=workers,
-            pin_memory=bool(fold_args.training.get("pin_memory", trainer.device.type == "cuda")),
-            drop_last=False,
-            persistent_workers=bool(fold_args.training.get("persistent_workers", workers > 0)) and workers > 0,
-            collate_fn=multi_collate_fn,
-        )
-        if workers > 0:
-            opts["prefetch_factor"] = int(fold_args.training.get("prefetch_factor", 4))
-        train_loader = DataLoader(Subset(dataset, train_idx.tolist()), shuffle=not ordered, **opts)
-        valid_loader = DataLoader(Subset(dataset, valid_idx.tolist()), shuffle=False, **opts)
-        histories.append(trainer.fit(train_loader, valid_loader))
+        train_loader = trainer.make_loader(dataset, indices=train_idx, shuffle=not ordered)
+        valid_loader = trainer.make_loader(dataset, indices=valid_idx)
+        histories.append(trainer.fit(train_loader=train_loader, valid_loader=valid_loader, train_range=train_val_range, valid_range=train_val_range))
         pred, label_df = trainer.predict(prediction_range, save=True)
         predictions.append(cross_sectional_zscore(pred) if standardize else pred)
     ensemble = sum(predictions) / len(predictions)
@@ -64,9 +51,10 @@ def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_r
     return ensemble, label_df, histories
 
 
-def _sample_count(args, date_range):
-    params = copy.deepcopy(args.training.dataset.params)
-    return len(DATASET_DICT[args.training.dataset.name](start_date=date_range[0], end_date=date_range[1], **params))
-
-
-
+def _sample_count(args, model_class, date_range, loss_config=None):
+    sample_args = copy.deepcopy(args)
+    if loss_config:
+        sample_args.model.loss.name = loss_config.get("name", sample_args.model.loss.name)
+        sample_args.model.loss.params = loss_config.get("params", {})
+    trainer = SupervisedTrainerV3(sample_args, model_class, run_name="_sample_count")
+    return len(trainer.make_dataset(date_range))

@@ -55,14 +55,17 @@ class SupervisedTrainerV3:
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def _dataset(self, start_date, end_date):
+    def make_dataset(self, date_range):
         params = copy.deepcopy(self.args.training.dataset.params)
-        return DATASET_DICT[self.args.training.dataset.name](start_date=start_date, end_date=end_date, **params)
+        return DATASET_DICT[self.args.training.dataset.name](
+            start_date=date_range[0],
+            end_date=date_range[1],
+            **params,
+        )
 
-    def make_loader(self, start_date, end_date, *, shuffle=False, indices=None):
+    def make_loader(self, dataset, *, shuffle=False, indices=None):
         if getattr(self.loss, "requires_ordered_batches", False) and shuffle:
             raise ValueError("Temporal RankIC requires chronological batches; shuffle must be False")
-        dataset = self._dataset(start_date, end_date)
         loader_dataset = Subset(dataset, list(indices)) if indices is not None else dataset
         workers = int(self.args.training.get("num_workers", 0))
         loader_kwargs = {
@@ -145,8 +148,8 @@ class SupervisedTrainerV3:
         ordered = getattr(self.loss, "requires_ordered_batches", False)
         if train_range is None or valid_range is None:
             raise ValueError("fit requires explicit train_range and valid_range")
-        train_loader = train_loader or self.make_loader(*train_range, shuffle=not ordered)
-        valid_loader = valid_loader or self.make_loader(*valid_range)
+        train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
+        valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
         stopper = EarlyStopping(self.args.training.early_stop_patience, self.args.training.early_stop_delta)
         records = []
         for epoch in range(int(self.args.training.num_epoch)):
@@ -170,7 +173,8 @@ class SupervisedTrainerV3:
         module.eval()
         if date_range is None:
             raise ValueError("predict requires explicit date_range")
-        loader = self.make_loader(*date_range)
+        dataset = self.make_dataset(date_range)
+        loader = self.make_loader(dataset)
         dataset = loader.dataset
         preds = np.full((len(dataset.dates), len(dataset.ticks)), np.nan)
         labels = np.full_like(preds, np.nan)
@@ -215,3 +219,5 @@ def run_supervise(
     history = trainer.fit(train_range=train_range, valid_range=valid_range)
     pred, label = trainer.predict(prediction_range or test_range, save=True)
     return pred, label, [history]
+
+
