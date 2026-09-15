@@ -23,9 +23,33 @@ dvolume = data.load('d_essentials/volume_adj')
 dturnover = data.load('d_essentials/turnover')
 
 
+close_zscore = cross_sectional_zscore(dclose)
+high_zscore = cross_sectional_zscore(dhigh)
+low_zscore = cross_sectional_zscore(dlow)
+open_zscore = cross_sectional_zscore(dopen)
+logvolume_zscore = cross_sectional_zscore(np.log(dvolume))
+turnover_zscore = cross_sectional_zscore(dturnover)
+
 close_pct = winsorize(pct_change(dclose))
 open_pct = winsorize(pct_change(dopen))
 high_pct = winsorize(pct_change(dhigh))
 low_pct = winsorize(pct_change(dlow))
 logvolume_pct = winsorize(pct_change(np.log(dvolume)))
 turnover_pct = winsorize(pct_change(dturnover))
+
+close2open = np.divide(dclose, dopen, out=np.zeros_like(dclose), where=dopen!=0) -1
+high2open = np.divide(dhigh, dopen, out=np.zeros_like(dhigh), where=dopen!=0) -1
+low2open = np.divide(dlow, dopen, out=np.zeros_like(dlow), where=dopen!=0) -1
+high2close = np.divide(dhigh, dclose, out=np.zeros_like(dhigh), where=dclose!=0) -1
+low2close = np.divide(dlow, dclose, out=np.zeros_like(dlow), where=dclose!=0) -1
+high2low = np.divide(dhigh, dlow, out=np.zeros_like(dhigh), where=dlow!=0) -1
+
+
+output_dir = ROOT / "stock/model_input/dGRU/"
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
+for field in d_fields:
+    eval(field).astype(np.float32).tofile(output_dir / f"{field}.bin")
+
+
