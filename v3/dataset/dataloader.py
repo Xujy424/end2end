@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
+import pandas as pd
 import torch as th
 from torch.utils.data import Dataset
 
@@ -41,8 +42,7 @@ class BaseDataset(Dataset):
 
         if start_date is None or end_date is None:
             raise ValueError("DataPool dataset requires start_date and end_date from the trainer split")
-        self.start_idx = self.pool.axis.date_position(start_date)
-        self.end_idx = self.pool.axis.date_position(end_date)
+        self.start_idx, self.end_idx = self._date_range_positions(start_date, end_date)
 
         self.mode = self.dataset_config.get("mode", "universe")
         self.pool_name = self.dataset_config.get("pool_name")
@@ -66,6 +66,19 @@ class BaseDataset(Dataset):
         self.max_lag = max((block.lag for block in self.blocks.values() if block.kind == "daily"), default=1)
         self.date_indices = np.arange(max(self.start_idx, self.max_lag - 1), self.end_idx + 1, dtype=np.int64)
         self._candidate_ticks = [self._select_candidate_ticks(date_idx) for date_idx in self.date_indices]
+
+    def _date_range_positions(self, start_date, end_date) -> tuple[int, int]:
+        """Map natural date bounds to inclusive trading-date positions."""
+        start = np.datetime64(pd.Timestamp(start_date).date(), "D")
+        end = np.datetime64(pd.Timestamp(end_date).date(), "D")
+        if start > end:
+            raise ValueError(f"start date {start} is after end date {end}")
+        trade_dates = self.pool.axis.trade_dates
+        start_pos = int(np.searchsorted(trade_dates, start, side="left"))
+        end_pos = int(np.searchsorted(trade_dates, end, side="right")) - 1
+        if start_pos >= len(trade_dates) or end_pos < 0 or start_pos > end_pos:
+            raise KeyError(f"no trading dates in range: {start} to {end}")
+        return start_pos, end_pos
 
     @staticmethod
     def _normalize_label(label):
@@ -224,6 +237,9 @@ class FlattenDataset(BaseDataset):
             "date_idx": date_idx,
             "tick_idxs": tick,
         }
+
+
+
 
 
 
