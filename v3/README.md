@@ -126,33 +126,7 @@ run_gru(
 
 To add a new loss, implement it under `v3/training/losses/` and register it in `v3/training/losses/__init__.py`.
 
-## Dataset Configuration
-
-`v3.dataset.config` has small helpers for flexible local feature discovery.
-
-```python
-from v3.dataset.config import dataset_params, feature_block
-
-params = dataset_params(
-    shared={
-        "start_date": "2013-01-01",
-        "end_date": "2025-12-31",
-        "label": "Y.10D.zcorr",
-        "mode": "universe",
-        "pool_name": None,
-        "fix_stock": None,
-        "sample_size": None,
-        "nanflit_set": ["dailyset"],
-    },
-    blocks={
-        "dailyset": feature_block("/data/xujiayi/end2end/GRU_new/", lag=20),
-    },
-)
-
-run_gru(config_override={"training": {"dataset": {"params": params}}})
-```
-
-## Adding A New Model
+## Dataset Configuration`r`n`r`nDataset configuration is declared directly in each model config. There is no extra dataset config helper layer in V3.`r`n`r`n```python`r`n"dataset": {`r`n    "name": "datapool_batch",`r`n    "params": {`r`n        "dataset_config": {`r`n            "label": "Y.10D",`r`n            "mode": "universe",`r`n            "pool_name": None,`r`n            "fix_stock": None,`r`n            "sample_size": None,`r`n            "nanflit_set": ["dailyset"],`r`n        },`r`n        "feature_blocks": {`r`n            "dailyset": {`r`n                "kind": "daily",`r`n                "data_path": "model_input/dGRU",`r`n                "fields": ["close_zscore", "close_pct"],`r`n                "lag": 20,`r`n            },`r`n            "minuteset": {`r`n                "kind": "minute",`r`n                "data_path": "m_essentials",`r`n                "fields": ["close", "volume"],`r`n            },`r`n        },`r`n    },`r`n}`r`n````r`n`r`nDate ranges are not part of model or dataset config. Experiment scripts split dates and pass ranges to the runner/trainer.`r`n`r`n## Adding A New Model
 
 Create a file under `v3/models/` with:
 
@@ -276,7 +250,7 @@ label              -> (1,)
 Feature block frequency is inferred from the block name or config:
 
 ```python
-"specified_param_dict": {
+"feature_blocks": {
     "dailyset": {
         "kind": "daily",
         "data_path": "model_input/dGRU",
@@ -292,3 +266,4 @@ Feature block frequency is inferred from the block name or config:
 ```
 
 Daily fields are expected to be axis-aligned 2-D memmaps `(date, tick)`. Minute fields are expected to be 3-D memmaps `(date, minute, tick)`, which DataPool exposes as `(stock, minute, field)` for a daily cross-section.
+

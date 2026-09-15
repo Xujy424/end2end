@@ -19,45 +19,46 @@ class FeatureBlock:
     lag: int
     kind: str
 
-class DataPoolBaseDataset(Dataset):
+
+class BaseDataset(Dataset):
     """Shared DataPool-backed feature reader for batch and flatten datasets."""
 
     def __init__(
         self,
-        shared_param_dict: Mapping[str, Any],
-        specified_param_dict: Mapping[str, Any],
+        dataset_config: Mapping[str, Any],
+        feature_blocks: Mapping[str, Any],
         start_date=None,
-        end_date=None
+        end_date=None,
     ):
-        self.shared = dict(shared_param_dict)
-        self.specified = dict(specified_param_dict)
-        self.root = Path(self.shared.get("root", ROOT))
-        self.asset = self.shared.get("asset", "stock")
+        self.dataset_config = dict(dataset_config)
+        self.feature_blocks = dict(feature_blocks)
+        self.root = Path(self.dataset_config.get("root", ROOT))
+        self.asset = self.dataset_config.get("asset", "stock")
         self.pool = DataPool(self.root, asset=self.asset)
 
         self.dates = self.pool.axis.trade_dates.astype("datetime64[D]", copy=False)
         self.ticks = self.pool.axis.ticks
         self.valid_date_mask = np.ones(len(self.dates), dtype=bool)
 
-        start_date = start_date or self.shared.get("start_date")
-        end_date = end_date or self.shared.get("end_date")
+        start_date = start_date or self.dataset_config.get("start_date")
+        end_date = end_date or self.dataset_config.get("end_date")
         if start_date is None or end_date is None:
             raise ValueError("DataPool dataset requires start_date and end_date from the trainer split")
         self.start_idx = self.pool.axis.date_position(start_date)
         self.end_idx = self.pool.axis.date_position(end_date)
-        self.mode = self.shared.get("mode", "universe")
-        self.pool_name = self.shared.get("pool_name")
-        self.fix_stock = self.shared.get("fix_stock")
-        self.sample_size = self.shared.get("sample_size")
-        self.nan_filter_blocks = set(self.shared.get("nanflit_set") or self.shared.get("nanfilt_set") or ["dailyset"])
+        self.mode = self.dataset_config.get("mode", "universe")
+        self.pool_name = self.dataset_config.get("pool_name")
+        self.fix_stock = self.dataset_config.get("fix_stock")
+        self.sample_size = self.dataset_config.get("sample_size")
+        self.nan_filter_blocks = set(self.dataset_config.get("nanflit_set") or self.dataset_config.get("nanfilt_set") or ["dailyset"])
 
-        self.label_name = self._normalize_label(self.shared.get("label"))
+        self.label_name = self._normalize_label(self.dataset_config.get("label"))
         self.label_array = self.pool.load(self.label_name) if self.label_name else None
         self.tradable = self._optional_load(self.pool, "mask/tradable")
         self.pool_mask = self._optional_load(self.pool, f"mask/{self.pool_name}_mask") if self.mode == "pool" else None
         self.fix_tick_indices = self.pool.axis.tick_positions(self.fix_stock) if self.mode == "fix" else None
 
-        self.blocks = self._build_blocks(self.specified)
+        self.blocks = self._build_blocks(self.feature_blocks)
         self.field_arrays = {
             field: self.pool.load(field)
             for block in self.blocks.values()
@@ -176,11 +177,11 @@ class DataPoolBaseDataset(Dataset):
         self.pool.close()
 
 
-class DataPoolBatchDataset(DataPoolBaseDataset):
+class BatchDataset(BaseDataset):
     """One item is one trading date cross-section."""
 
-    def __init__(self, shared_param_dict: Mapping[str, Any], specified_param_dict: Mapping[str, Any], **kwargs):
-        super().__init__(shared_param_dict, specified_param_dict, **kwargs)
+    def __init__(self, dataset_config: Mapping[str, Any], feature_blocks: Mapping[str, Any], **kwargs):
+        super().__init__(dataset_config=dataset_config, feature_blocks=feature_blocks, **kwargs)
         self.data_map = {idx: int(date_idx) for idx, date_idx in enumerate(self.date_indices)}
 
     def __len__(self):
@@ -199,11 +200,11 @@ class DataPoolBatchDataset(DataPoolBaseDataset):
         }
 
 
-class DataPoolFlattenDataset(DataPoolBaseDataset):
+class FlattenDataset(BaseDataset):
     """One item is one (date, stock) sample."""
 
-    def __init__(self, shared_param_dict: Mapping[str, Any], specified_param_dict: Mapping[str, Any], **kwargs):
-        super().__init__(shared_param_dict, specified_param_dict, **kwargs)
+    def __init__(self, dataset_config: Mapping[str, Any], feature_blocks: Mapping[str, Any], **kwargs):
+        super().__init__(dataset_config=dataset_config, feature_blocks=feature_blocks, **kwargs)
         pairs = []
         for local_date_idx, date_idx in enumerate(self.date_indices):
             for tick in self._candidate_ticks[local_date_idx]:
@@ -227,5 +228,8 @@ class DataPoolFlattenDataset(DataPoolBaseDataset):
 
 
 DataPoolDailyBatchDataset = DataPoolBatchDataset
+
+
+
 
 

@@ -26,7 +26,7 @@ class GRUConfig(BaseConfig):
                 "dataset": {
                     "name": "datapool_daily",
                     "params": {
-                        "shared_param_dict": {
+                        "dataset_config": {
                             "label": "y10_peer_zscore1",
                             "mode": "universe",
                             "pool_name": None,
@@ -34,7 +34,7 @@ class GRUConfig(BaseConfig):
                             "sample_size": None,
                             "nanflit_set": ["dailyset"],
                         },
-                        "specified_param_dict": {
+                        "feature_blocks": {
                             "dailyset": {
                                 "data_path": "model_input/dGRU",
                                 "fields": self.d_fields,
@@ -108,5 +108,6 @@ class GRUModel(nn.Module):
 
 GRU_Arg = GRUConfig
 GRU_Model = GRUModel
+
 
 

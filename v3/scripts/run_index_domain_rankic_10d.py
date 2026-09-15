@@ -26,7 +26,7 @@ def run_index_domain_rankic_10d_return_supervised(
             "perf_path": perf_path,
             "dataset": {
                 "params": {
-                    "shared_param_dict": {
+                    "dataset_config": {
                         "label": "Y.10D",
                     }
                 }
@@ -71,5 +71,6 @@ def run_index_domain_rankic_10d_return_supervised(
 
 if __name__ == "__main__":
     run_index_domain_rankic_10d_return_supervised()
+
 
 
