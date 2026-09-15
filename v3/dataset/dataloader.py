@@ -32,30 +32,29 @@ class BaseDataset(Dataset):
     ):
         self.dataset_config = dict(dataset_config)
         self.feature_blocks = dict(feature_blocks)
+
         self.root = Path(self.dataset_config.get("root", ROOT))
         self.asset = self.dataset_config.get("asset", "stock")
         self.pool = DataPool(self.root, asset=self.asset)
-
         self.dates = self.pool.axis.trade_dates.astype("datetime64[D]", copy=False)
         self.ticks = self.pool.axis.ticks
-        self.valid_date_mask = np.ones(len(self.dates), dtype=bool)
 
-        start_date = start_date or self.dataset_config.get("start_date")
-        end_date = end_date or self.dataset_config.get("end_date")
         if start_date is None or end_date is None:
             raise ValueError("DataPool dataset requires start_date and end_date from the trainer split")
         self.start_idx = self.pool.axis.date_position(start_date)
         self.end_idx = self.pool.axis.date_position(end_date)
+
         self.mode = self.dataset_config.get("mode", "universe")
         self.pool_name = self.dataset_config.get("pool_name")
         self.fix_stock = self.dataset_config.get("fix_stock")
         self.sample_size = self.dataset_config.get("sample_size")
-        self.nan_filter_blocks = set(self.dataset_config.get("nanflit_set") or self.dataset_config.get("nanfilt_set") or ["dailyset"])
+        self.nan_filter_blocks = set(self.dataset_config.get("nanflit_set") or ["dailyset"])
 
         self.label_name = self._normalize_label(self.dataset_config.get("label"))
         self.label_array = self.pool.load(self.label_name) if self.label_name else None
-        self.tradable = self._optional_load(self.pool, "mask/tradable")
-        self.pool_mask = self._optional_load(self.pool, f"mask/{self.pool_name}_mask") if self.mode == "pool" else None
+
+        self.tradable = self._optional_load(self.pool, "basic/tradable")
+        self.pool_mask = self._optional_load(self.pool, f"index/mask/{self.pool_name}_mask") if self.mode == "pool" else None
         self.fix_tick_indices = self.pool.axis.tick_positions(self.fix_stock) if self.mode == "fix" else None
 
         self.blocks = self._build_blocks(self.feature_blocks)
@@ -100,8 +99,8 @@ class BaseDataset(Dataset):
             if kind not in {"daily", "minute"}:
                 continue
             default_path = "model_input/dGRU" if kind == "daily" else "m_essentials"
-            fields = tuple(str(field).strip().removesuffix(".bin") for field in cfg.get("fields", ()))
             data_path = str(cfg.get("data_path", default_path)).replace(chr(92), "/").strip("/")
+            fields = tuple(str(field).strip().removesuffix(".bin") for field in cfg.get("fields", ()))
             normalized = tuple(field if "/" in field else f"{data_path}/{field}" for field in fields)
             blocks[str(name)] = FeatureBlock(
                 name=str(name),
@@ -226,8 +225,6 @@ class FlattenDataset(BaseDataset):
             "tick_idxs": tick,
         }
 
-
-DataPoolDailyBatchDataset = DataPoolBatchDataset
 
 
 

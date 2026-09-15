@@ -3,11 +3,10 @@ from typing import Any, Dict, List
 import numpy as np
 import torch as th
 
-from .torchdata import (
-    DataPoolBaseDataset,
-    DataPoolBatchDataset,
-    DataPoolDailyBatchDataset,
-    DataPoolFlattenDataset,
+from .dataloader import (
+    BaseDataset,
+    BatchDataset,
+    FlattenDataset,
 )
 
 
@@ -30,19 +29,18 @@ def daily_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 DATASET_DICT = {
-    "datapool_daily": DataPoolBatchDataset,
-    "datapool_batch": DataPoolBatchDataset,
-    "datapool_flatten": DataPoolFlattenDataset,
+    "datapool_batch": BatchDataset,
+    "datapool_flatten": FlattenDataset,
 }
 
 multi_collate_fn = daily_collate_fn
 
 __all__ = [
     "DATASET_DICT",
-    "DataPoolBaseDataset",
-    "DataPoolBatchDataset",
-    "DataPoolDailyBatchDataset",
-    "DataPoolFlattenDataset",
+    "BaseDataset",
+    "BatchDataset",
+    "DailyBatchDataset",
+    "FlattenDataset",
     "daily_collate_fn",
     "multi_collate_fn",
 ]
