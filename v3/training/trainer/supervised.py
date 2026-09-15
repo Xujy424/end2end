@@ -53,13 +53,22 @@ class SupervisedTrainerV3:
         if getattr(self.loss, "requires_ordered_batches", False) and shuffle:
             raise ValueError("Temporal RankIC requires chronological batches; shuffle must be False")
         if int(self.args.training.batch_size) != 1:
-            raise ValueError("V3 requires batch_size=1: one daily N脳T脳F cross-section")
+            raise ValueError("V3 requires batch_size=1: one daily N鑴砊鑴矲 cross-section")
         dataset = self._dataset(start_date, end_date)
         loader_dataset = Subset(dataset, list(indices)) if indices is not None else dataset
         workers = int(self.args.training.get("num_workers", 0))
-        return DataLoader(loader_dataset, batch_size=1, shuffle=shuffle, num_workers=workers,
-                          pin_memory=self.device.type == "cuda", drop_last=False,
-                          persistent_workers=workers > 0, collate_fn=multi_collate_fn)
+        loader_kwargs = {
+            "batch_size": 1,
+            "shuffle": shuffle,
+            "num_workers": workers,
+            "pin_memory": bool(self.args.training.get("pin_memory", self.device.type == "cuda")),
+            "drop_last": False,
+            "persistent_workers": bool(self.args.training.get("persistent_workers", workers > 0)) and workers > 0,
+            "collate_fn": multi_collate_fn,
+        }
+        if workers > 0:
+            loader_kwargs["prefetch_factor"] = int(self.args.training.get("prefetch_factor", 4))
+        return DataLoader(loader_dataset, **loader_kwargs)
 
     def _to_device(self, value):
         if isinstance(value, torch.Tensor):
@@ -169,4 +178,5 @@ class SupervisedTrainerV3:
             pred_df.to_csv(self.perf_dir / "alpha.csv")
             label_df.to_csv(self.perf_dir / "label.csv")
         return pred_df, label_df
+
 

@@ -188,3 +188,107 @@ Basic syntax verification:
 ```python
 python -m compileall v3
 ```
+
+## DataPool DataLoader Path
+
+V3 now provides `v3.dataset.DataPoolDailyBatchDataset`, registered as:
+
+```python
+training.dataset.name = "datapool_daily"
+```
+
+It uses `v3.dataset.datapool.DataPool` as the physical data access layer and keeps field memmaps open for the life of the dataset. One `__getitem__` returns one daily stock cross-section:
+
+```text
+feats["dailyset"]: (stock, lag, feature)
+label:             (stock,)
+date_idx:          int
+tick_idxs:         (stock,)
+```
+
+This matches the RankIC training style where `batch_size=1` means one trading day.
+
+Compared with the old `MultiBatchDataset` style, this path is usually faster and cleaner when data is stored as axis-aligned `.bin` files because:
+
+- field shape and dtype are inferred once by `DataPool`;
+- memmap handles are cached instead of reopened by each backend;
+- date/tick axes are shared across every field;
+- each training step materializes only the current daily cross-section and lag window;
+- the collate function is nearly a no-op for `batch_size=1`, avoiding extra cat/unsqueeze work;
+- `pin_memory=True` plus `non_blocking=True` keeps CPU-to-GPU transfer efficient.
+
+Recommended loader settings for GPU training:
+
+```python
+config_override = {
+    "training": {
+        "dataset": {"name": "datapool_daily"},
+        "batch_size": 1,
+        "num_workers": 2,
+        "pin_memory": True,
+        "persistent_workers": True,
+        "prefetch_factor": 4,
+    }
+}
+```
+
+Use fewer workers if the storage backend is a network drive or if random date access causes paging pressure. Use `num_workers=0` for debugging because errors are easier to read.
+
+Memory behavior:
+
+- The dataset does not load all fields into RAM. It keeps read-only memmap objects and relies on the OS page cache.
+- Each batch copies only `(stock_count, lag, feature_count)` float32 data plus labels.
+- GPU memory stays bounded by one daily cross-section, not by the full date range.
+- For maximum transfer efficiency, keep tensors contiguous and use `pin_memory=True` in the DataLoader and `to(device, non_blocking=True)` in the trainer.
+
+Future high-throughput improvements:
+
+- Store model-ready features as one fused field `(date, feature, tick)` or `(date, tick, feature)` to reduce per-feature file reads.
+- Add a small per-worker rolling date cache when training windows are strictly chronological.
+- Use float16/bfloat16 feature storage for low-precision inputs if model quality is stable.
+- Keep labels/masks as separate cheap memmaps and avoid converting them to DataFrames during training.
+
+### Batch vs Flatten Dataset Modes
+
+The DataPool torch layer supports both existing training conventions:
+
+```python
+training.dataset.name = "datapool_batch"    # same as datapool_daily
+training.dataset.name = "datapool_flatten"
+```
+
+`datapool_batch` returns one trading day per sample. It is the right choice for cross-sectional losses such as IC, RankIC, domain RankIC, and temporal RankIC.
+
+```text
+feats["dailyset"]  -> (stock, lag, daily_feature)
+feats["minuteset"] -> (stock, minute, minute_feature)
+label              -> (stock,)
+```
+
+`datapool_flatten` returns one `(date, stock)` pair per sample. It is the right choice for ordinary point-wise supervised losses or larger mini-batches of independent stock-day samples.
+
+```text
+feats["dailyset"]  -> (lag, daily_feature)
+feats["minuteset"] -> (minute, minute_feature)
+label              -> (1,)
+```
+
+Feature block frequency is inferred from the block name or config:
+
+```python
+"specified_param_dict": {
+    "dailyset": {
+        "kind": "daily",
+        "data_path": "model_input/dGRU",
+        "fields": ["close_zscore", "close_pct"],
+        "lag": 20,
+    },
+    "minuteset": {
+        "kind": "minute",
+        "data_path": "m_essentials",
+        "fields": ["close", "volume"],
+    },
+}
+```
+
+Daily fields are expected to be axis-aligned 2-D memmaps `(date, tick)`. Minute fields are expected to be 3-D memmaps `(date, minute, tick)`, which DataPool exposes as `(stock, minute, field)` for a daily cross-section.

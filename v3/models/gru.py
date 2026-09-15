@@ -32,7 +32,7 @@ class GRUConfig(BaseConfig):
                     "test_end": "2024-12-31",
                 },
                 "dataset": {
-                    "name": "batch",
+                    "name": "datapool_daily",
                     "params": {
                         "shared_param_dict": {
                             "start_date": "2013-01-01",
@@ -46,7 +46,7 @@ class GRUConfig(BaseConfig):
                         },
                         "specified_param_dict": {
                             "dailyset": {
-                                "data_path": "/data/xujiayi/xjy/research_factors/model_input/dGRU/",
+                                "data_path": "model_input/dGRU",
                                 "fields": self.d_fields,
                                 "lag": 20,
                             },
@@ -118,3 +118,4 @@ class GRUModel(nn.Module):
 
 GRU_Arg = GRUConfig
 GRU_Model = GRUModel
+

@@ -42,8 +42,16 @@ def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_r
         dataset = trainer._dataset(*train_val_range)
         ordered = getattr(trainer.loss, "requires_ordered_batches", False)
         workers = int(fold_args.training.get("num_workers", 0))
-        opts = dict(batch_size=1, num_workers=workers, pin_memory=trainer.device.type == "cuda",
-                    drop_last=False, persistent_workers=workers > 0, collate_fn=multi_collate_fn)
+        opts = dict(
+            batch_size=1,
+            num_workers=workers,
+            pin_memory=bool(fold_args.training.get("pin_memory", trainer.device.type == "cuda")),
+            drop_last=False,
+            persistent_workers=bool(fold_args.training.get("persistent_workers", workers > 0)) and workers > 0,
+            collate_fn=multi_collate_fn,
+        )
+        if workers > 0:
+            opts["prefetch_factor"] = int(fold_args.training.get("prefetch_factor", 4))
         train_loader = DataLoader(Subset(dataset, train_idx.tolist()), shuffle=not ordered, **opts)
         valid_loader = DataLoader(Subset(dataset, valid_idx.tolist()), shuffle=False, **opts)
         histories.append(trainer.fit(train_loader, valid_loader))
@@ -62,4 +70,5 @@ def _sample_count(args, date_range):
     params.shared_param_dict.start_date = date_range[0]
     params.shared_param_dict.end_date = date_range[1]
     return len(DATASET_DICT[args.training.dataset.name](**params))
+
 
