@@ -66,7 +66,9 @@ class SupervisedTrainerV3:
     def make_loader(self, dataset, *, shuffle=False, indices=None):
         if getattr(self.loss, "requires_ordered_batches", False) and shuffle:
             raise ValueError("Temporal RankIC requires chronological batches; shuffle must be False")
+        
         loader_dataset = Subset(dataset, list(indices)) if indices is not None else dataset
+
         workers = int(self.args.training.get("num_workers", 0))
         loader_kwargs = {
             "batch_size": 1,
@@ -108,6 +110,7 @@ class SupervisedTrainerV3:
         self.optimizer.step()
         self.optimizer.zero_grad(set_to_none=True)
 
+
     def _iterate(self, loader, training):
         self.loss.configure_dataset(loader.dataset)
         self.model.train(training)
@@ -143,14 +146,19 @@ class SupervisedTrainerV3:
         if training and getattr(self.loss, "requires_epoch_update", False) and values:
             self._optimizer_step()
         return float(np.mean(values)) if values else float("nan")
+
     
     def fit(self, train_loader=None, valid_loader=None, save_loss=True, train_range=None, valid_range=None):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
+
         if train_range is None or valid_range is None:
             raise ValueError("fit requires explicit train_range and valid_range")
+        
         train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
         valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
+
         stopper = EarlyStopping(self.args.training.early_stop_patience, self.args.training.early_stop_delta)
+
         records = []
         for epoch in range(int(self.args.training.num_epoch)):
             train_loss = self._iterate(train_loader, True)
@@ -165,6 +173,7 @@ class SupervisedTrainerV3:
         if save_loss:
             frame.to_csv(self.perf_dir / "loss_history.csv", index=False)
         return frame
+
 
     @torch.no_grad()
     def predict(self, date_range=None, model_path=None, save=True):
