@@ -47,8 +47,8 @@ def run_index_domain_rankic_10d_return_supervised(
         valid_range=valid_range,
         test_range=test_range,
         loss_params={
-            "domains": ["zz800", "zz1000", "others"],
-            "domain_weights": [0.025, 0.8, 0.175],
+            "domains": ["hs300", "zz500", "zz1000", "others"],
+            "domain_weights": [0.025, 0.025, 0.8, 0.15],
             "provider_params": {
                 "axis_root": ROOT / "axis",
                 "mask_root": ROOT / "stock/index/mask",

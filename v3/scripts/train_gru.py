@@ -25,7 +25,7 @@ LOSS_PRESETS = {
             "temperature": 0.01,
             "method": "sigmoid",
             "domain_type": "industry",
-            "provider_params": {"axis_root": ROOT / "axis", "mask_root": ROOT / "mask"},
+            "provider_params": {"axis_root": ROOT / "axis", "mask_root": ROOT / "industry"},
         },
     },
     "domain_index": {
@@ -34,9 +34,9 @@ LOSS_PRESETS = {
             "temperature": 0.01,
             "method": "sigmoid",
             "domain_type": "index",
-            "domains": ["zz800", "zz1000", "others"],
-            "domain_weights": [0.025, 0.8, 0.175],
-            "provider_params": {"axis_root": ROOT / "axis", "mask_root": ROOT / "mask"},
+            "domains": ["hs300", "zz500", "zz1000", "others"],
+            "domain_weights": [0.025, 0.025, 0.8, 0.15],
+            "provider_params": {"axis_root": ROOT / "axis", "mask_root": ROOT / "index/mask"},
         },
     },
 }
@@ -49,6 +49,7 @@ def loss_config(name_or_config="rankic", **params):
         config = deepcopy(LOSS_PRESETS[name_or_config])
     config.setdefault("params", {}).update(params)
     return config
+
 def run_gru(
     *,
     framework="supervise",

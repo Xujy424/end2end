@@ -24,10 +24,10 @@ class GRUConfig(BaseConfig):
                 "early_stop_patience": 3,
                 "early_stop_delta": 0,
                 "dataset": {
-                    "name": "datapool_daily",
+                    "name": "datapool_batch",
                     "params": {
                         "dataset_config": {
-                            "label": "y10_peer_zscore1",
+                            "label": "Y.10D.zcorr",
                             "mode": "universe",
                             "pool_name": None,
                             "fix_stock": None,

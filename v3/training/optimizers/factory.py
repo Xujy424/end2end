@@ -7,7 +7,11 @@ import torch
 from torch import nn
 
 
-OPTIMIZERS = {"adam": torch.optim.Adam, "adamw": torch.optim.AdamW}
+OPTIMIZERS = {
+    "adam": torch.optim.Adam, 
+    "adamw": torch.optim.AdamW
+}
+
 SCHEDULERS = {
     "linearlr": torch.optim.lr_scheduler.LinearLR,
     "steplr": torch.optim.lr_scheduler.StepLR,

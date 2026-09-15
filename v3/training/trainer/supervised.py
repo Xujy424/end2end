@@ -25,12 +25,30 @@ class SupervisedTrainerV3:
         self.args = copy.deepcopy(args)
         self.device = torch.device(self.args.training.device if torch.cuda.is_available() else "cpu")
         self._set_seed(int(self.args.training.seed))
+
         self.model = model_class(**self.args.model.params).to(self.device).float()
         if torch.cuda.device_count() > 1 and self.args.training.multi_gpu:
-            self.model = nn.DataParallel(self.model, device_ids=list(self.args.training.available_gpu), output_device=int(self.args.training.main_gpu))
-        self.loss = loss or build_loss(self.args.model.loss.name, self.args.model.loss.get("params", {}))
-        self.optimizer = build_optimizer(self.args.optimizer.name, (p for p in self.model.parameters() if p.requires_grad), self.args.optimizer.optim_params)
-        self.scheduler = build_scheduler(self.args.optimizer.scheduler, self.optimizer, self.args.optimizer.sched_params) if self.args.optimizer.if_lr_decay else None
+            self.model = nn.DataParallel(
+                self.model, 
+                device_ids=list(self.args.training.available_gpu), 
+                output_device=int(self.args.training.main_gpu)
+            )
+        
+        self.loss = loss or build_loss(
+            self.args.model.loss.name, 
+            self.args.model.loss.get("params", {})
+        )
+        self.optimizer = build_optimizer(
+            self.args.optimizer.name, 
+            (p for p in self.model.parameters() if p.requires_grad), 
+            self.args.optimizer.optim_params
+        )
+        self.scheduler = build_scheduler(
+            self.args.optimizer.scheduler, 
+            self.optimizer, 
+            self.args.optimizer.sched_params
+        ) if self.args.optimizer.if_lr_decay else None
+
         suffix = run_name or self.args.model.loss.name
         self.perf_dir = Path(self.args.training.perf_path).expanduser() / self.args.model.name / "v3" / suffix
         self.perf_dir.mkdir(parents=True, exist_ok=True)
@@ -50,8 +68,6 @@ class SupervisedTrainerV3:
     def make_loader(self, start_date, end_date, *, shuffle=False, indices=None):
         if getattr(self.loss, "requires_ordered_batches", False) and shuffle:
             raise ValueError("Temporal RankIC requires chronological batches; shuffle must be False")
-        if int(self.args.training.batch_size) != 1:
-            raise ValueError("V3 requires batch_size=1: one daily N闂佺厧顕悥锕傛煠鐎靛摜鍙?cross-section")
         dataset = self._dataset(start_date, end_date)
         loader_dataset = Subset(dataset, list(indices)) if indices is not None else dataset
         workers = int(self.args.training.get("num_workers", 0))
@@ -130,6 +146,7 @@ class SupervisedTrainerV3:
         if training and getattr(self.loss, "requires_epoch_update", False) and values:
             self._optimizer_step()
         return float(np.mean(values)) if values else float("nan")
+    
     def fit(self, train_loader=None, valid_loader=None, save_loss=True, train_range=None, valid_range=None):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
         if train_range is None or valid_range is None:
