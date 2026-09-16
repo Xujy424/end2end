@@ -101,6 +101,8 @@ def _save_plots(args, run_name, prediction, label, histories):
 
     
 
+if __name__ == "__main__":
+    main()
 
 
 
