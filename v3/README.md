@@ -38,35 +38,53 @@ from v3.scripts.train_gru import train_gru
 pred, label, histories = train_gru()
 ```
 
-The current script is intentionally one clear chain:
+The current script selects strategy by parameter:
 
 ```python
-train_gru.py -> training.strategy.plain.run_plain -> SupervisedTrainerV3
+train_gru(strategy="plain")
+train_gru(strategy="rolling")
+train_gru(strategy="kfold")
 ```
 
-For other run layouts, call strategy modules explicitly:
+Available strategy names:
 
 ```python
-from v3.training.strategy.kfold import run_kfold
-from v3.training.strategy.rolling import run_rolling
-from v3.training.strategy.bagging import run_bagging
-from v3.training.strategy.gridsearch import run_gridsearch
+strategy="plain"
+strategy="rolling"
+strategy="kfold"
+strategy="bagging"
+strategy="gridsearch"
 ```
 
 Examples:
 
 ```python
-from v3.models.gru import GRUModel
-from v3.scripts.train_gru import build_args
-from v3.training.strategy.kfold import run_kfold
+from v3.scripts.train_gru import train_gru
 
-args = build_args()
-pred, label, histories = run_kfold(
-    args,
-    GRUModel,
-    train_val_range=("2016-01-01", "2024-12-31"),
-    prediction_range=("2025-01-01", "2025-12-31"),
-    folds=5,
+pred, label, histories = train_gru(
+    strategy="kfold",
+    strategy_params={
+        "train_val_range": ("2016-01-01", "2024-12-31"),
+        "prediction_range": ("2025-01-01", "2025-12-31"),
+        "folds": 5,
+    },
+)
+
+# MSE rolling run
+pred, label, histories = train_gru(
+    strategy="rolling",
+    loss_name="mse",
+    run_name="gru_mse_rolling_2016_2025",
+    strategy_params={
+        "window_params": {
+            "start_dt": "2016-01-01",
+            "end_dt": "2025-12-31",
+            "train_len": 7,
+            "valid_len": 1,
+            "test_len": 1,
+            "rolling_gap": 1,
+        }
+    },
 )
 ```
 
@@ -87,12 +105,12 @@ train_gru(
 
 ## Loss Configuration
 
-Loss configuration lives in the model config. `v3.scripts.train_gru.build_args` sets the current run to index-domain RankIC:
+Loss configuration lives at top level. `v3.scripts.train_gru.build_args` merges preset dictionaries into one config:
 
 ```python
-args = build_args()
-print(args.model.loss.name)
-print(args.model.loss.params)
+args = build_args(loss="domain_rankic_index")
+print(args.loss.name)
+print(args.loss.params)
 ```
 
 To add a new loss, implement it under `v3/training/losses/` and register it in `v3/training/losses/__init__.py`.
@@ -171,10 +189,10 @@ python -m compileall v3
 
 ## DataPool DataLoader Path
 
-V3 now provides `v3.dataset.BatchDataset`, registered as:
+V3 now provides `v3.dataset.BatchDataset`, configured at top level as:
 
 ```python
-training.dataset.name = "datapool_daily"
+dataset.name = "datapool_batch"
 ```
 
 It uses `v3.dataset.datapool.DataPool` as the physical data access layer and keeps field memmaps open for the life of the dataset. One `__getitem__` returns one daily stock cross-section:
@@ -232,8 +250,8 @@ Future high-throughput improvements:
 The DataPool torch layer supports both existing training conventions:
 
 ```python
-training.dataset.name = "datapool_batch"    # same as datapool_daily
-training.dataset.name = "datapool_flatten"
+dataset.name = "datapool_batch"
+dataset.name = "datapool_flatten"
 ```
 
 `datapool_batch` returns one trading day per sample. It is the right choice for cross-sectional losses such as IC, RankIC, domain RankIC, and temporal RankIC.

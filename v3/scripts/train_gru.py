@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
 import sys
 from typing import Any, Mapping
@@ -9,114 +8,121 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from v3.models.gru import GRUConfig, GRUModel
+from v3.config import TemplateConfig, merge_dict
+from v3.dataset import dataset_config
+from v3.models.gru_presets import GRU_FEATURE_BLOCKS, GRU_MODEL_CONFIG
 from v3.paths import DATA_ROOT
+from v3.training.loss_presets import loss_config
+from v3.training.optimizer_presets import optimizer_config
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
-from v3.training.strategy.plain import run_plain
-
-ROOT = DATA_ROOT
-
-TRAIN_RANGE = ("2016-01-01", "2023-12-31")
-VALID_RANGE = ("2024-01-01", "2024-12-31")
-TEST_RANGE = ("2025-01-01", "2025-12-31")
+from v3.training.strategy import get_strategy, strategy_config
 
 
 def build_args(
     *,
-    perf_path="~/PycharmProjects/Models/XJY_end2end/0_result/",
-    device="cuda:0",
-    num_epoch: int | None = None,
+    model="gru",
+    dataset="gru_daily",
+    loss="domain_rankic_index",
+    optimizer="adamw_default",
+    strategy="plain",
+    model_params: Mapping[str, Any] | None = None,
+    dataset_params: Mapping[str, Any] | None = None,
+    loss_params: Mapping[str, Any] | None = None,
+    optimizer_params: Mapping[str, Any] | None = None,
+    strategy_params: Mapping[str, Any] | None = None,
+    training_params: Mapping[str, Any] | None = None,
     config_override: Mapping[str, Any] | None = None,
 ):
-    override = {
-        "training": {
-            "device": device,
-            "perf_path": perf_path,
-            "dataset": {
-                "name": "datapool_batch",
-                "params": {
-                    "dataset_config": {
-                        "root": ROOT,
-                        "asset": "stock",
-                        "label": "Y.10D",
-                        "mode": "universe",
-                        "pool_name": None,
-                        "fix_stock": None,
-                        "sample_size": None,
-                        "nan_filter_blocks": ["dailyset"],
-                    },
-                    "feature_blocks": {
-                        "dailyset": {
-                            "kind": "daily",
-                            "data_path": "model_input/dGRU",
-                            "fields": GRUConfig.d_fields,
-                            "lag": 20,
-                        },
-                    },
-                },
-            },
-        },
-        "model": {
-            "loss": {
-                "name": "domain_rankic",
-                "params": {
-                    "temperature": 0.01,
-                    "method": "sigmoid",
-                    "domain_type": "index",
-                    "domains": ["hs300", "zz500", "zz1000", "others"],
-                    "domain_weights": [0.025, 0.025, 0.8, 0.15],
-                    "provider_params": {
-                        "axis_root": ROOT / "axis",
-                        "mask_root": ROOT / "stock/index/mask",
-                        "ticks_file": "stock_ticks.npy",
-                    },
-                },
-            },
-        },
-    }
-    if num_epoch is not None:
-        override["training"]["num_epoch"] = int(num_epoch)
-    if config_override:
-        override = _merge_dict(override, config_override)
-    return GRUConfig(override)
+    if model != "gru":
+        raise KeyError("train_gru currently supports model='gru' only")
+
+    model_cfg = merge_dict(GRU_MODEL_CONFIG, model_params)
+    dataset_cfg = dataset_config(
+        dataset,
+        params=merge_dict(
+            {"feature_blocks": GRU_FEATURE_BLOCKS},
+            (dataset_params or {}).get("params", {}),
+        ),
+        **{key: value for key, value in dict(dataset_params or {}).items() if key != "params"},
+    )
+    loss_cfg = loss_config(loss, **dict(loss_params or {}))
+    if loss_cfg["name"] == "domain_rankic":
+        provider = loss_cfg.setdefault("params", {}).setdefault("provider_params", {})
+        provider.setdefault("axis_root", DATA_ROOT / "axis")
+        provider.setdefault("mask_root", DATA_ROOT / "stock/index/mask")
+        provider.setdefault("ticks_file", "stock_ticks.npy")
+
+    cfg = TemplateConfig(
+        model=model_cfg,
+        dataset=dataset_cfg,
+        loss=loss_cfg,
+        optimizer=optimizer_config(optimizer, **dict(optimizer_params or {})),
+        strategy=strategy_config(strategy, **dict(strategy_params or {})),
+        training=training_params,
+        override=config_override,
+    )
+    return cfg
 
 
 def train_gru(
     *,
-    perf_path="~/PycharmProjects/Models/XJY_end2end/0_result/",
-    device="cuda:0",
-    num_epoch: int | None = None,
-    run_name="index_domain_rankic_supervised_2016_2025",
+    model="gru",
+    dataset="gru_daily",
+    loss="domain_rankic_index",
+    optimizer="adamw_default",
+    strategy="plain",
+    trainer="supervised",
+    run_name=None,
+    model_params: Mapping[str, Any] | None = None,
+    dataset_params: Mapping[str, Any] | None = None,
+    loss_params: Mapping[str, Any] | None = None,
+    optimizer_params: Mapping[str, Any] | None = None,
+    strategy_params: Mapping[str, Any] | None = None,
+    training_params: Mapping[str, Any] | None = None,
     config_override: Mapping[str, Any] | None = None,
 ):
     args = build_args(
-        perf_path=perf_path,
-        device=device,
-        num_epoch=num_epoch,
+        model=model,
+        dataset=dataset,
+        loss=loss,
+        optimizer=optimizer,
+        strategy=strategy,
+        model_params=model_params,
+        dataset_params=dataset_params,
+        loss_params=loss_params,
+        optimizer_params=optimizer_params,
+        strategy_params=strategy_params,
+        training_params=training_params,
         config_override=config_override,
     )
-    prediction, label, histories = run_plain(
+    from v3.models.gru import GRUModel
+
+    strategy_fn = get_strategy(args.strategy.name)
+    prediction, label, histories = strategy_fn(
         args,
         GRUModel,
-        trainer="supervised",
-        run_name=run_name,
-        train_range=TRAIN_RANGE,
-        valid_range=VALID_RANGE,
-        test_range=TEST_RANGE,
+        trainer=trainer,
+        run_name=run_name or _default_run_name(args),
+        **dict(args.strategy.get("params", {})),
     )
-    _save_plots(args, run_name, prediction, label, histories)
+    _save_plots(args, _plot_run_name(run_name or _default_run_name(args), args.strategy.name), prediction, label, histories)
     return prediction, label, histories
 
 
+def _default_run_name(args):
+    return f"{args.model.name}_{args.loss.name}_{args.strategy.name}"
+
+
+def _plot_run_name(run_name, strategy):
+    return f"{run_name}/rolling" if str(strategy).lower() == "rolling" else run_name
+
+
 def _save_plots(args, run_name, prediction, label, histories):
+    if label is None:
+        return
     out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / run_name
 
-    group_ax, group_ret = plot_group_return(
-        prediction,
-        label,
-        num_group=10,
-        title="Test Group Return: index-domain RankIC, Y.10D",
-    )
+    group_ax, group_ret = plot_group_return(prediction, label, num_group=10, title="Test Group Return")
     group_ax.figure.tight_layout()
     group_ax.figure.savefig(out_dir / "test_group_return.png", dpi=160)
     group_ret.to_csv(out_dir / "test_group_return.csv")
@@ -131,16 +137,6 @@ def _save_plots(args, run_name, prediction, label, histories):
         loss_ax.figure.tight_layout()
         loss_ax.figure.savefig(out_dir / "loss_history.png", dpi=160)
         loss_frame.to_csv(out_dir / "loss_history_merged.csv", index=False)
-
-
-def _merge_dict(base: Mapping[str, Any], override: Mapping[str, Any]):
-    result = deepcopy(dict(base))
-    for key, value in override.items():
-        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
-            result[key] = _merge_dict(result[key], value)
-        else:
-            result[key] = deepcopy(value)
-    return result
 
 
 if __name__ == "__main__":

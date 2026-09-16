@@ -29,7 +29,7 @@ def run_gridsearch(
     for values in values_iter:
         params = dict(zip(keys, values))
         run_args = copy.deepcopy(args)
-        run_args.model.loss.params.update(params)
+        run_args.loss.params.update(params)
         alias = ",".join(f"{key}={value}" for key, value in params.items()) or "default"
         pred, label, hist = strategy_fn(
             run_args,

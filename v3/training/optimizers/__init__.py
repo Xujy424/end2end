@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from v3.training.optimizer_presets import OPTIMIZER_PRESETS, optimizer_config
+
 OPTIMIZER_REGISTRY = {
     "adam": torch.optim.Adam,
     "adamw": torch.optim.AdamW,
@@ -18,7 +20,6 @@ SCHEDULER_REGISTRY = {
     "cosine": torch.optim.lr_scheduler.CosineAnnealingLR,
     "reduce_lr_on_plateau": torch.optim.lr_scheduler.ReduceLROnPlateau,
 }
-
 
 def build_optimizer(name, parameters, params=None):
     try:
@@ -102,10 +103,12 @@ class EarlyStopping:
 
 __all__ = [
     "EarlyStopping",
+    "OPTIMIZER_PRESETS",
     "OPTIMIZER_REGISTRY",
     "SCHEDULER_REGISTRY",
     "WarmupThenPlateau",
     "build_optimizer",
     "build_optimizer_bundle",
     "build_scheduler",
+    "optimizer_config",
 ]

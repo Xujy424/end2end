@@ -19,6 +19,7 @@ from .rankic import (
     neural_sort_rank, sigmoid_rank, weighted_corr,
 )
 from .temporal import TemporalRankICLoss
+from v3.training.loss_presets import LOSS_PRESETS, loss_config
 
 
 LOSS_REGISTRY = {
@@ -29,7 +30,6 @@ LOSS_REGISTRY = {
     "domain_rankic": DomainWeightedRankICLoss,
     "temporal_rankic": TemporalRankICLoss,
 }
-
 
 def build_loss(name: str, params=None):
     try:
@@ -42,7 +42,8 @@ def build_loss(name: str, params=None):
 __all__ = [
     "ContextLoss", "DifferentiableRankICLoss", "DOMAIN_PROVIDERS", "DomainProvider",
     "DomainWeightedRankICLoss", "IndustryDomainProvider", "IndexDomainProvider",
-    "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
+    "LOSS_PRESETS", "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
     "register_domain_provider", "TemporalRankICLoss", "build_loss",
+    "loss_config",
     "neural_sort_rank", "sigmoid_rank", "weighted_corr",
 ]

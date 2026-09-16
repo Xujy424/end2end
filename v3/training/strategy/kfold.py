@@ -33,7 +33,7 @@ def run_kfold(
     if train_val_range is None or prediction_range is None:
         raise ValueError("run_kfold requires train_val_range and prediction_range")
     predictions, histories, label_df = [], [], None
-    base_name = run_name or args.model.loss.name
+    base_name = run_name or args.loss.name
     sample_count = _sample_count(args, model_class, trainer_class, train_val_range)
     for fold, (train_idx, valid_idx) in enumerate(contiguous_kfold_indices(sample_count, folds), start=1):
         fold_args = copy.deepcopy(args)

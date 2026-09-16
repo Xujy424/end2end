@@ -51,8 +51,11 @@ class BaseConfig:
 
     def bind(self):
         self.training = self.cfg.training
+        self.dataset = self.cfg.dataset
+        self.loss = self.cfg.loss
         self.model = self.cfg.model
         self.optimizer = self.cfg.optimizer
+        self.strategy = self.cfg.get("strategy", None)
         return self
 
     def rewrite(self, override: Mapping[str, Any]):

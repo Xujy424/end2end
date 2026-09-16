@@ -35,15 +35,15 @@ class SupervisedTrainerV3:
             )
         
         self.loss = loss or build_loss(
-            self.args.model.loss.name, 
-            self.args.model.loss.get("params", {})
+            self.args.loss.name, 
+            self.args.loss.get("params", {})
         )
         self.optimizer, self.scheduler = build_optimizer_bundle(
             self.args.optimizer,
             (p for p in self.model.parameters() if p.requires_grad),
         )
 
-        suffix = run_name or self.args.model.loss.name
+        suffix = run_name or self.args.loss.name
         self.perf_dir = Path(self.args.training.perf_path).expanduser() / self.args.model.name / "v3" / suffix
         self.perf_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.perf_dir / "best_model.pth"
@@ -56,8 +56,8 @@ class SupervisedTrainerV3:
             torch.cuda.manual_seed_all(seed)
 
     def make_dataset(self, date_range):
-        params = copy.deepcopy(self.args.training.dataset.params)
-        return DATASET_DICT[self.args.training.dataset.name](
+        params = copy.deepcopy(self.args.dataset.params)
+        return DATASET_DICT[self.args.dataset.name](
             start_date=date_range[0],
             end_date=date_range[1],
             **params,

@@ -22,7 +22,7 @@ class BasicSelfSupervisedTrainerV3:
 
     Models may return their own loss as ``(representation, loss)`` or
     ``{"prediction": ..., "loss": ...}``. Alternatively, configure a loss and
-    provide ``args.model.loss.params.target_key``.
+        provide ``args.loss.params.target_key``.
     """
 
     def __init__(self, args, model_class, loss=None, run_name=None):
@@ -38,8 +38,8 @@ class BasicSelfSupervisedTrainerV3:
                 output_device=int(self.args.training.main_gpu),
             )
 
-        loss_name = str(self.args.model.loss.get("name", "model")).lower()
-        loss_params = dict(self.args.model.loss.get("params", {}))
+        loss_name = str(self.args.loss.get("name", "model")).lower()
+        loss_params = dict(self.args.loss.get("params", {}))
         self.target_key = loss_params.pop("target_key", None)
         self.prediction_key = loss_params.pop("prediction_key", "prediction")
         self.representation_key = loss_params.pop("representation_key", "representation")
@@ -50,7 +50,7 @@ class BasicSelfSupervisedTrainerV3:
             (p for p in self.model.parameters() if p.requires_grad),
         )
 
-        suffix = run_name or self.args.model.loss.name
+        suffix = run_name or self.args.loss.name
         self.perf_dir = Path(self.args.training.perf_path).expanduser() / self.args.model.name / "v3" / suffix
         self.perf_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.perf_dir / "best_model.pth"
@@ -63,10 +63,10 @@ class BasicSelfSupervisedTrainerV3:
             torch.cuda.manual_seed_all(seed)
 
     def make_dataset(self, date_range):
-        params = copy.deepcopy(self.args.training.dataset.params)
+        params = copy.deepcopy(self.args.dataset.params)
         params.setdefault("dataset_config", {})
         params["dataset_config"]["label"] = None
-        return DATASET_DICT[self.args.training.dataset.name](
+        return DATASET_DICT[self.args.dataset.name](
             start_date=date_range[0],
             end_date=date_range[1],
             **params,
@@ -104,7 +104,7 @@ class BasicSelfSupervisedTrainerV3:
         if model_loss is not None:
             return prediction, model_loss.mean() if model_loss.ndim else model_loss
         if self.loss is None:
-            raise ValueError("Self-supervised model must return a loss when args.model.loss.name is 'model'")
+            raise ValueError("Self-supervised model must return a loss when args.loss.name is 'model'")
         target = self._target_from_batch(batch)
         return prediction, self.loss(prediction, target, {"batch": batch})
 
@@ -120,7 +120,7 @@ class BasicSelfSupervisedTrainerV3:
 
     def _target_from_batch(self, batch):
         if self.target_key is None:
-            raise ValueError("Configured self-supervised loss requires args.model.loss.params.target_key")
+            raise ValueError("Configured self-supervised loss requires args.loss.params.target_key")
         if self.target_key in batch:
             return batch[self.target_key]
         if self.target_key in batch.get("feats", {}):

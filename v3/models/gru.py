@@ -6,79 +6,54 @@ from v3.config import BaseConfig
 from v3.registry import register_model
 
 
+D_FIELDS = [
+    "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
+    "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
+    "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
+]
+
+M_FIELDS = ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"]
+
+GRU_MODEL_CONFIG = {
+    "name": "gru",
+    "params": {
+        "input_size_d": len(D_FIELDS),
+        "input_size_m": len(M_FIELDS),
+        "hidden_size": 128,
+        "num_layers": 4,
+        "dropout": 0.5,
+    },
+}
+
+GRU_FEATURE_BLOCKS = {
+    "dailyset": {
+        "kind": "daily",
+        "data_path": "model_input/dGRU",
+        "fields": D_FIELDS,
+        "lag": 20,
+    },
+    # "minuteset": {
+    #     "kind": "minute",
+    #     "data_path": "m_essentials",
+    #     "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
+    # },
+}
+
+
 class GRUConfig(BaseConfig):
-    d_fields = [
-        "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
-        "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
-        "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
-    ]
-    m_fields = ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"]
+    d_fields = D_FIELDS
+    m_fields = M_FIELDS
 
     def default(self):
-        return {
-            "training": {
-                "device": "cuda:0",
-                "seed": 480,
-                "num_epoch": 100,
-                "early_stop_patience": 3,
-                "early_stop_delta": 0,
-                "num_workers": 0,
-                "pin_memory": True,
-                "persistent_workers": False,
-                "prefetch_factor": 4,
-                "dataset": {
-                    "name": "datapool_batch",
-                    "params": {
-                        "dataset_config": {
-                            "root": None,
-                            "asset": "stock",
-                            "label": "Y.10D.zcorr",
-                            "mode": "universe",
-                            "pool_name": None,
-                            "fix_stock": None,
-                            "sample_size": None,
-                            "nan_filter_blocks": ["dailyset"],
-                        },
-                        "feature_blocks": {
-                            "dailyset": {
-                                "kind": "daily",
-                                "data_path": "model_input/dGRU",
-                                "fields": self.d_fields,
-                                "lag": 20,
-                            },
-                        },
-                    },
-                },
-                "multi_gpu": False,
-                "available_gpu": [0],
-                "main_gpu": 0,
-                "amp": False,
-                "deterministic": False,
-                "perf_path": "~/PycharmProjects/Models/XJY_end2end/0_result/",
-            },
-            "model": {
-                "name": "gru",
-                "params": {
-                    "input_size_d": len(self.d_fields),
-                    "input_size_m": len(self.m_fields),
-                    "hidden_size": 128,
-                    "num_layers": 4,
-                    "dropout": 0.5,
-                },
-                "loss": {"name": "ic", "params": {}},
-            },
-            "optimizer": {
-                "name": "adamw",
-                "optim_params": {"lr": 1e-3, "weight_decay": 1e-4, "eps": 1e-8},
-                "accumulation_steps": 1,
-                "if_grad_norm": True,
-                "max_grad_norm": 3.0,
-                "if_lr_decay": True,
-                "scheduler": "reduce_lr_on_plateau",
-                "sched_params": {"mode": "min", "factor": 0.5, "patience": 4},
-                "warmup": {"enabled": False, "name": "linearlr", "epoch": 5, "start_lr": 1e-8},
-            },
-        }
+        return {"model": self.preset()}
+
+    @classmethod
+    def preset(cls):
+        return GRU_MODEL_CONFIG
+
+
+def gru_feature_blocks():
+    return GRU_FEATURE_BLOCKS
 
 
 @register_model("gru", config_class=GRUConfig)

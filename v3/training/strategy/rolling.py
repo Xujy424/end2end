@@ -51,7 +51,7 @@ def run_rolling(
         rolling_windows = get_rolling_windows(**window_params)
 
     predictions, labels, histories = [], [], []
-    base_name = run_name or args.model.loss.name
+    base_name = run_name or args.loss.name
     for idx, (train_win, valid_win, test_win) in enumerate(rolling_windows, start=1):
         fold_args = copy.deepcopy(args)
         trainer = trainer_class(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
