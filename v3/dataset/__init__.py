@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from v3.dataset.dataloader import *
-from v3.paths import DATA_ROOT
+from v3.training.paths import DATA_ROOT
 
 
 

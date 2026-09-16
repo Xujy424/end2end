@@ -112,15 +112,7 @@ OPTIMIZER_PRESETS = {
     "scheduler": "reduce_lr_on_plateau",
     "sched_params": {"mode": "min", "factor": 0.5, "patience": 4},
     "warmup": {"enabled": False, "name": "linearlr", "epoch": 5, "start_lr": 1e-8},
-},
-
-
-def optimizer_config(name, **override):
-    try:
-        config = OPTIMIZER_PRESETS[name]
-    except KeyError as exc:
-        raise KeyError(f"Unknown optimizer preset {name!r}; available: {sorted(OPTIMIZER_PRESETS)}") from exc
-    return merge_dict(config, override)
+}
 
 
 __all__ = [
@@ -132,7 +124,6 @@ __all__ = [
     "build_optimizer",
     "build_optimizer_bundle",
     "build_scheduler",
-    "optimizer_config",
 ]
 
 

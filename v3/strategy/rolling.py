@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from v3.training.trainer import resolve_trainer_class
+from v3.trainer import resolve_trainer_class
 
 
 def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, rolling_gap=1):

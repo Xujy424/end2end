@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from v3.training.trainer import resolve_trainer_class
+from v3.trainer import resolve_trainer_class
 
 
 def contiguous_kfold_indices(sample_count: int, folds: int = 5):

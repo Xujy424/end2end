@@ -14,7 +14,8 @@ D_FIELDS = [
 
 M_FIELDS = ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"]
 
-GRU_MODEL_CONFIG = {
+
+GRU_Config = {
     "name": "gru",
     "params": {
         "input_size_d": len(D_FIELDS),
@@ -24,36 +25,6 @@ GRU_MODEL_CONFIG = {
         "dropout": 0.5,
     },
 }
-
-GRU_FEATURE_BLOCKS = {
-    "dailyset": {
-        "kind": "daily",
-        "data_path": "model_input/dGRU",
-        "fields": D_FIELDS,
-        "lag": 20,
-    },
-    # "minuteset": {
-    #     "kind": "minute",
-    #     "data_path": "m_essentials",
-    #     "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
-    # },
-}
-
-
-class GRU_Config(BaseConfig):
-    d_fields = D_FIELDS
-    m_fields = M_FIELDS
-
-    def default(self):
-        return {"model": self.preset()}
-
-    @classmethod
-    def preset(cls):
-        return GRU_MODEL_CONFIG
-
-
-def gru_feature_blocks():
-    return GRU_FEATURE_BLOCKS
 
 
 @register_model("gru", config_class=GRU_Config)

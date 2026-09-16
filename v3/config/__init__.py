@@ -2,7 +2,7 @@ from .base import BaseConfig, ConfigNode, merge_dict, to_config
 
 
 BASE_CONFIG = {
-    "trainer": {},
+    "training": {},
     "dataset": {},
     "loss": {},
     "model": {},

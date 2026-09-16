@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from v3.paths import DATA_ROOT
+from v3.training.paths import DATA_ROOT
 
 ROOT = DATA_ROOT
 

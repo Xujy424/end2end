@@ -10,11 +10,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from v3.config import merge_dict, BASE_CONFIG, BaseConfig
 from v3.models import get_model_config, get_model
-from v3.training.losses import LOSS_PRESETS
+from v3.losses import LOSS_PRESETS
 from v3.dataset import DATASET_PRESETS
-from v3.training.strategy import STRATEGY_PRESETS, get_strategy
-from v3.training.trainer import TRAINING_PRESETS, get_trainer_class
-from v3.training.optimizers import OPTIMIZER_PRESETS
+from v3.strategy import STRATEGY_PRESETS, get_strategy
+from v3.training import TRAINING_PRESETS
+from v3.trainer import get_trainer_class
+from v3.optimizers import OPTIMIZER_PRESETS
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
 
 
@@ -27,7 +28,7 @@ def build_args(
     training_update,
     optimizer_update,
 ):
-    model_cfg = merge_dict(get_model_config[model_name], model_update)
+    model_cfg = merge_dict(get_model_config(model_name), model_update)
     loss_cfg = merge_dict(LOSS_PRESETS[loss_name], loss_update)
     dataset_cfg = merge_dict(DATASET_PRESETS, dataset_update)
     strategy_cfg = merge_dict(STRATEGY_PRESETS[strategy_name], strategy_update)
@@ -37,7 +38,7 @@ def build_args(
     cfg = merge_dict(
         BASE_CONFIG,
         {
-            "trainer": training_cfg,
+            "training": training_cfg,
             "dataset": dataset_cfg,
             "loss": loss_cfg,
             "model": model_cfg,

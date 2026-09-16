@@ -10,12 +10,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from v3.config import TemplateConfig, merge_dict
 from v3.dataset import dataset_config
-from v3.paths import DATA_ROOT
+from v3.training.paths import DATA_ROOT
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
-from v3.training.strategy import get_strategy, strategy_config
+from v3.strategy import get_strategy, strategy_config
 from v3.models.gru import GRU_MODEL_CONFIG, GRU_FEATURE_BLOCKS
-from v3.training.losses import loss_config
-from v3.training.optimizers import optimizer_config
+from v3.losses import loss_config
+from v3.optimizers import optimizer_config
 
 
 def build_args(
