@@ -67,19 +67,19 @@ def build_args(
         },
         "model": {
             "loss": {
-                "name": "domain_rankic",
-                "params": {
-                    "temperature": 0.01,
-                    "method": "sigmoid",
-                    "domain_type": "index",
-                    "domains": ["hs300", "zz500", "zz1000", "others"],
-                    "domain_weights": [0.025, 0.025, 0.8, 0.15],
-                    "provider_params": {
-                        "axis_root": ROOT / "axis",
-                        "mask_root": ROOT / "stock/index/mask",
-                        "ticks_file": "stock_ticks.npy",
-                    },
-                },
+                "name": "mse",
+                # "params": {
+                #     "temperature": 0.01,
+                #     "method": "sigmoid",
+                #     "domain_type": "index",
+                #     "domains": ["hs300", "zz500", "zz1000", "others"],
+                #     "domain_weights": [0.025, 0.025, 0.8, 0.15],
+                #     "provider_params": {
+                #         "axis_root": ROOT / "axis",
+                #         "mask_root": ROOT / "stock/index/mask",
+                #         "ticks_file": "stock_ticks.npy",
+                #     },
+                # },
             }
         },
     }
