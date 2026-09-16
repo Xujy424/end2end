@@ -13,7 +13,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
-from v3.dataset import DATASET_DICT, multi_collate_fn
+from v3.dataset import DATASET_DICT
 from v3.training.losses import build_loss
 from v3.training.optimizers import EarlyStopping, build_optimizer_bundle
 
@@ -71,13 +71,11 @@ class SupervisedTrainerV3:
 
         workers = int(self.args.training.get("num_workers", 0))
         loader_kwargs = {
-            "batch_size": 1,
+            "batch_size": None,
             "shuffle": shuffle,
             "num_workers": workers,
             "pin_memory": bool(self.args.training.get("pin_memory", self.device.type == "cuda")),
-            "drop_last": False,
             "persistent_workers": bool(self.args.training.get("persistent_workers", workers > 0)) and workers > 0,
-            "collate_fn": multi_collate_fn,
         }
         if workers > 0:
             loader_kwargs["prefetch_factor"] = int(self.args.training.get("prefetch_factor", 4))
