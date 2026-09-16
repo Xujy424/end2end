@@ -19,10 +19,8 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from v3.dataset.datapool import ROOT
 from .rankic import DifferentiableRankICLoss
-
-ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path('/data/xujiayi/end2end')
-
 
 
 class DomainProvider(ABC):

@@ -220,18 +220,13 @@ def run_supervise(
     args,
     model_class,
     *,
-    loss_config=None,
     train_range=None,
     valid_range=None,
     test_range=None,
     prediction_range=None,
     run_name=None,
 ):
-    run_args = copy.deepcopy(args)
-    if loss_config:
-        run_args.model.loss.name = loss_config.get("name", run_args.model.loss.name)
-        run_args.model.loss.params = loss_config.get("params", {})
-    trainer = SupervisedTrainerV3(run_args, model_class, run_name=run_name)
+    trainer = SupervisedTrainerV3(args, model_class, run_name=run_name)
     history = trainer.fit(train_range=train_range, valid_range=valid_range)
     pred, label = trainer.predict(prediction_range or test_range, save=True)
     return pred, label, [history]

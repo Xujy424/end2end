@@ -23,18 +23,15 @@ def cross_sectional_zscore(frame: pd.DataFrame) -> pd.DataFrame:
     return frame.sub(mean, axis=0).div(std, axis=0)
 
 
-def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_range=None, folds=5, loss_config=None, run_name=None, standardize=True):
+def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_range=None, folds=5, run_name=None, standardize=True):
     if train_val_range is None or prediction_range is None:
         raise ValueError("run_kfold_supervise requires train_val_range and prediction_range")
     predictions, histories, label_df = [], [], None
     base_name = run_name or args.model.loss.name
-    sample_count = _sample_count(args, model_class, train_val_range, loss_config)
+    sample_count = _sample_count(args, model_class, train_val_range)
     for fold, (train_idx, valid_idx) in enumerate(contiguous_kfold_indices(sample_count, folds), start=1):
         fold_args = copy.deepcopy(args)
         fold_args.training.seed = int(fold_args.training.seed) + fold - 1
-        if loss_config:
-            fold_args.model.loss.name = loss_config.get("name", fold_args.model.loss.name)
-            fold_args.model.loss.params = loss_config.get("params", {})
         trainer = SupervisedTrainerV3(fold_args, model_class, run_name=f"{base_name}/kfold/fold_{fold:02d}")
         dataset = trainer.make_dataset(train_val_range)
         ordered = getattr(trainer.loss, "requires_ordered_batches", False)
@@ -51,10 +48,7 @@ def run_kfold_supervise(args, model_class, *, train_val_range=None, prediction_r
     return ensemble, label_df, histories
 
 
-def _sample_count(args, model_class, date_range, loss_config=None):
+def _sample_count(args, model_class, date_range):
     sample_args = copy.deepcopy(args)
-    if loss_config:
-        sample_args.model.loss.name = loss_config.get("name", sample_args.model.loss.name)
-        sample_args.model.loss.params = loss_config.get("params", {})
     trainer = SupervisedTrainerV3(sample_args, model_class, run_name="_sample_count")
     return len(trainer.make_dataset(date_range))

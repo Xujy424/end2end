@@ -2,107 +2,128 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
+import sys
 from typing import Any, Mapping
 
-from v3.experiments import ENSEMBLE_REGISTRY, run_training
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from v3.ensemble.plain import run_plain
+from v3.dataset.datapool import ROOT
 from v3.models.gru import GRUConfig, GRUModel
+from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
 
-ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path("/data/shanghai/xujiayi/workflow/data/")
-
-LOSS_PRESETS = {
-    "mse": {"name": "mse", "params": {}},
-    "ic": {"name": "ic", "params": {}},
-    "pearson_ic": {"name": "pearson_ic", "params": {}},
-    "rankic": {"name": "rankic", "params": {"temperature": 0.01, "method": "sigmoid"}},
-    "rankic_neural": {"name": "rankic", "params": {"temperature": 0.01, "method": "neural"}},
-    "temporal_rankic": {
-        "name": "temporal_rankic",
-        "params": {"temperature": 0.01, "method": "sigmoid", "turnover_rate": 0.1},
-    },
-    "domain_industry": {
-        "name": "domain_rankic",
-        "params": {
-            "temperature": 0.01,
-            "method": "sigmoid",
-            "domain_type": "industry",
-            "provider_params": {"axis_root": ROOT / "axis", "mask_root": ROOT / "industry"},
-        },
-    },
-    "domain_index": {
-        "name": "domain_rankic",
-        "params": {
-            "temperature": 0.01,
-            "method": "sigmoid",
-            "domain_type": "index",
-            "domains": ["hs300", "zz500", "zz1000", "others"],
-            "domain_weights": [0.025, 0.025, 0.8, 0.15],
-            "provider_params": {"axis_root": ROOT / "axis", "mask_root": ROOT / "index/mask"},
-        },
-    },
-}
+TRAIN_RANGE = ("2016-01-01", "2023-12-31")
+VALID_RANGE = ("2024-01-01", "2024-12-31")
+TEST_RANGE = ("2025-01-01", "2025-12-31")
 
 
-def loss_config(name_or_config="rankic", **params):
-    if isinstance(name_or_config, Mapping):
-        config = deepcopy(dict(name_or_config))
-    else:
-        config = deepcopy(LOSS_PRESETS[name_or_config])
-    config.setdefault("params", {}).update(params)
-    return config
-
-def run_gru(
+def build_args(
     *,
-    framework="supervise",
-    loss="rankic",
-    ensemble="none",
+    perf_path="~/PycharmProjects/Models/XJY_end2end/0_result/",
+    device="cuda:0",
+    num_epoch: int | None = None,
     config_override: Mapping[str, Any] | None = None,
-    loss_params: Mapping[str, Any] | None = None,
-    members=5,
-    folds=5,
-    grid: Mapping[str, list[Any]] | None = None,
-    **kwargs,
 ):
-    args = GRUConfig(config_override)
-    selected_loss = loss_config(loss, **dict(loss_params or {}))
-    kwargs.setdefault("folds", folds)
-    return ENSEMBLE_REGISTRY[ensemble](
+    override = {
+        "training": {
+            "device": device,
+            "perf_path": perf_path,
+            "dataset": {
+                "params": {
+                    "dataset_config": {
+                        "label": "Y.10D",
+                    }
+                }
+            },
+        },
+        "model": {
+            "loss": {
+                "name": "domain_rankic",
+                "params": {
+                    "temperature": 0.01,
+                    "method": "sigmoid",
+                    "domain_type": "index",
+                    "domains": ["hs300", "zz500", "zz1000", "others"],
+                    "domain_weights": [0.025, 0.025, 0.8, 0.15],
+                    "provider_params": {
+                        "axis_root": ROOT / "axis",
+                        "mask_root": ROOT / "stock/index/mask",
+                        "ticks_file": "stock_ticks.npy",
+                    },
+                },
+            }
+        },
+    }
+    if num_epoch is not None:
+        override["training"]["num_epoch"] = int(num_epoch)
+    if config_override:
+        override = _merge_dict(override, config_override)
+    return GRUConfig(override)
+
+
+def train_gru(
+    *,
+    perf_path="~/PycharmProjects/Models/XJY_end2end/0_result/",
+    device="cuda:0",
+    num_epoch: int | None = None,
+    run_name="index_domain_rankic_supervise_2016_2025",
+    config_override: Mapping[str, Any] | None = None,
+):
+    args = build_args(
+        perf_path=perf_path,
+        device=device,
+        num_epoch=num_epoch,
+        config_override=config_override,
+    )
+    prediction, label, histories = run_plain(
         args,
         GRUModel,
-        framework=framework,
-        loss_config=selected_loss,
-        members=members,
-        grid=grid,
-        **kwargs,
+        framework="supervise",
+        run_name=run_name,
+        train_range=TRAIN_RANGE,
+        valid_range=VALID_RANGE,
+        test_range=TEST_RANGE,
     )
+    _save_plots(args, run_name, prediction, label, histories)
+    return prediction, label, histories
 
 
-def run_rankic_kfold_5(train_val_range, prediction_range):
-    return run_gru(framework="kfold", loss="rankic", folds=5, train_val_range=train_val_range, prediction_range=prediction_range)
+def _save_plots(args, run_name, prediction, label, histories):
+    out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / run_name
 
-
-def run_domain_rolling(rolling_windows):
-    return run_gru(framework="rolling", loss="domain_industry", rolling_windows=rolling_windows)
-
-
-def run_rankic_gridsearch(train_val_range, prediction_range):
-    return run_gru(
-        framework="kfold",
-        loss="rankic",
-        ensemble="gridsearch",
-        folds=5,
-        grid={"temperature": [0.005, 0.01, 0.02], "method": ["sigmoid", "neural"]},
-        train_val_range=train_val_range,
-        prediction_range=prediction_range,
+    group_ax, group_ret = plot_group_return(
+        prediction,
+        label,
+        num_group=10,
+        title="Test Group Return: index-domain RankIC, Y.10D",
     )
+    group_ax.figure.tight_layout()
+    group_ax.figure.savefig(out_dir / "test_group_return.png", dpi=160)
+    group_ret.to_csv(out_dir / "test_group_return.csv")
+
+    ic_ax, ic_frame = plot_cumulative_ic(prediction, label, title="Test Cumulative IC / RankIC")
+    ic_ax.figure.tight_layout()
+    ic_ax.figure.savefig(out_dir / "test_cumulative_ic_rankic.png", dpi=160)
+    ic_frame.to_csv(out_dir / "test_cumulative_ic_rankic.csv")
+
+    if histories:
+        loss_ax, loss_frame = plot_loss_history(histories, title="Train / Valid Loss")
+        loss_ax.figure.tight_layout()
+        loss_ax.figure.savefig(out_dir / "loss_history.png", dpi=160)
+        loss_frame.to_csv(out_dir / "loss_history_merged.csv", index=False)
+
+
+def _merge_dict(base: Mapping[str, Any], override: Mapping[str, Any]):
+    result = deepcopy(dict(base))
+    for key, value in override.items():
+        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
+            result[key] = _merge_dict(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
 
 
 if __name__ == "__main__":
-    # Keep this file runnable for smoke usage, but production runs should call
-    # run_gru(...) with explicit keyword arguments from notebooks or job scripts.
-    raise RuntimeError("Call run_gru(...) with explicit date ranges from a job script or notebook.")
-
-
-
-
-
-
+    train_gru()

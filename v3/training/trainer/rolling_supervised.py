@@ -30,7 +30,7 @@ def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, 
     return windows
 
 
-def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_params=None, loss_config=None, run_name=None):
+def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_params=None, run_name=None):
     if rolling_windows is None:
         if window_params is None:
             raise ValueError("run_rolling_supervise requires rolling_windows or window_params")
@@ -40,9 +40,6 @@ def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_par
     base_name = run_name or args.model.loss.name
     for idx, (train_win, valid_win, test_win) in enumerate(rolling_windows, start=1):
         fold_args = copy.deepcopy(args)
-        if loss_config:
-            fold_args.model.loss.name = loss_config.get("name", fold_args.model.loss.name)
-            fold_args.model.loss.params = loss_config.get("params", {})
         trainer = SupervisedTrainerV3(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
         histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))  # loss_history frame
         pred, label = trainer.predict(test_win, save=True)

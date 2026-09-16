@@ -1,6 +1,6 @@
 # V3 Training Framework
 
-`v3` is a self-contained training package for the end-to-end stock modeling workflow. It copies the dataset and V2 training capabilities into a package-local structure, then separates configuration, data, trainer implementations, experiment orchestration, models, and runnable job scripts.
+`v3` is a self-contained training package for the end-to-end stock modeling workflow. It keeps configuration, data, trainer implementations, ensemble wrappers, models, and runnable job scripts in package-local modules.
 
 The goal is to make new models, losses, datasets, and training frameworks easier to add without changing unrelated modules.
 
@@ -11,7 +11,7 @@ v3/
   config/          BaseConfig and config merge utilities
   dataset/         Dataset backends, collate functions, feature config helpers
   training/        Losses, optimizers, metrics, and trainer implementations
-  experiments/     Framework runner, bagging, gridsearch, result summaries
+  ensemble/        Plain, bagging, gridsearch, and result summaries
   models/          Model definitions and model-specific default configs
   scripts/         Explicit-parameter job entry files
   registry.py      Lightweight model registry
@@ -21,11 +21,11 @@ v3/
 
 - `v3.dataset` only knows how to read local data and return samples.
 - `v3.training` only knows how to train, validate, predict, and compute losses.
-- `v3.experiments` owns outer experiment logic such as `supervise`, `rolling`, `kfold`, `bagging`, and `gridsearch`.
+- `v3.ensemble` owns only outer ensemble choices such as `plain`, `bagging`, and `gridsearch`.
 - `v3.models` owns model architecture and model-specific default config.
-- `v3.scripts` is thin glue for explicit function calls from notebooks, schedulers, or Python job files.
+- `v3.scripts.train_gru` is the GRU job entry point for explicit function calls from notebooks, schedulers, or Python job files.
 
-This keeps the trainer from knowing about grid search, keeps the model from knowing about rolling windows, and keeps data loading separate from experiment policy.
+This keeps the trainer from knowing about grid search, keeps the model from knowing about rolling windows, and keeps data loading separate from run policy.
 
 ## GRU Entry Point
 
@@ -85,23 +85,18 @@ run_gru(
 Pass nested dictionaries through `config_override`. The override is merged into the model default config.
 
 ```python
-from v3.scripts.train_gru import period_config, run_gru
+from v3.scripts.train_gru import run_gru
 
 run_gru(
     framework="supervise",
     loss="ic",
     config_override={
-        **period_config(
-            train_start="2016-01-01",
-            train_end="2021-12-31",
-            valid_start="2022-01-01",
-            valid_end="2022-12-31",
-            test_start="2023-01-01",
-            test_end="2023-12-31",
-        ),
         "training": {"device": "cuda:0", "num_epoch": 50},
         "optimizer": {"optim_params": {"lr": 5e-4}},
     },
+    train_range=("2016-01-01", "2021-12-31"),
+    valid_range=("2022-01-01", "2022-12-31"),
+    test_range=("2023-01-01", "2023-12-31"),
 )
 ```
 
@@ -126,7 +121,42 @@ run_gru(
 
 To add a new loss, implement it under `v3/training/losses/` and register it in `v3/training/losses/__init__.py`.
 
-## Dataset Configuration`r`n`r`nDataset configuration is declared directly in each model config. There is no extra dataset config helper layer in V3.`r`n`r`n```python`r`n"dataset": {`r`n    "name": "datapool_batch",`r`n    "params": {`r`n        "dataset_config": {`r`n            "label": "Y.10D",`r`n            "mode": "universe",`r`n            "pool_name": None,`r`n            "fix_stock": None,`r`n            "sample_size": None,`r`n            "nanflit_set": ["dailyset"],`r`n        },`r`n        "feature_blocks": {`r`n            "dailyset": {`r`n                "kind": "daily",`r`n                "data_path": "model_input/dGRU",`r`n                "fields": ["close_zscore", "close_pct"],`r`n                "lag": 20,`r`n            },`r`n            "minuteset": {`r`n                "kind": "minute",`r`n                "data_path": "m_essentials",`r`n                "fields": ["close", "volume"],`r`n            },`r`n        },`r`n    },`r`n}`r`n````r`n`r`nDate ranges are not part of model or dataset config. Experiment scripts split dates and pass ranges to the runner/trainer.`r`n`r`n## Adding A New Model
+## Dataset Configuration
+
+Dataset configuration is declared directly in each model config. There is no extra dataset config helper layer in V3.
+
+```python
+"dataset": {
+    "name": "datapool_batch",
+    "params": {
+        "dataset_config": {
+            "label": "Y.10D",
+            "mode": "universe",
+            "pool_name": None,
+            "fix_stock": None,
+            "sample_size": None,
+            "nanflit_set": ["dailyset"],
+        },
+        "feature_blocks": {
+            "dailyset": {
+                "kind": "daily",
+                "data_path": "model_input/dGRU",
+                "fields": ["close_zscore", "close_pct"],
+                "lag": 20,
+            },
+            "minuteset": {
+                "kind": "minute",
+                "data_path": "m_essentials",
+                "fields": ["close", "volume"],
+            },
+        },
+    },
+}
+```
+
+Date ranges are not part of model or dataset config. The script entry point passes ranges to the selected trainer.
+
+## Adding A New Model
 
 Create a file under `v3/models/` with:
 
@@ -134,7 +164,7 @@ Create a file under `v3/models/` with:
 - a PyTorch `nn.Module` model class;
 - optional `@register_model("name", config_class=YourConfig)` registration.
 
-Then create a thin script under `v3/scripts/` that calls `v3.experiments.run_training`, `run_bagging`, or `run_gridsearch` with explicit keyword arguments.
+Then add a model-specific script entry point or extend `v3/scripts/train_gru.py` with explicit keyword arguments.
 
 ## Outputs
 
@@ -165,7 +195,7 @@ python -m compileall v3
 
 ## DataPool DataLoader Path
 
-V3 now provides `v3.dataset.DataPoolDailyBatchDataset`, registered as:
+V3 now provides `v3.dataset.BatchDataset`, registered as:
 
 ```python
 training.dataset.name = "datapool_daily"

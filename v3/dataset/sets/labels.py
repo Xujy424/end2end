@@ -1,10 +1,15 @@
 from pathlib import Path
+import sys
 
 import numpy as np
 
-from matrix_math import *
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path("/data/shanghai/xujiayi/workflow/data/")
+from matrix_math import *
+from v3.dataset.datapool import ROOT
+
 label_dir = ROOT / "stock/model_input/labels/"
 label_dir.mkdir(parents=True, exist_ok=True)
 

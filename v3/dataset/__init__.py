@@ -39,7 +39,6 @@ __all__ = [
     "DATASET_DICT",
     "BaseDataset",
     "BatchDataset",
-    "DailyBatchDataset",
     "FlattenDataset",
     "daily_collate_fn",
     "multi_collate_fn",
