@@ -33,12 +33,37 @@ def build_args(
             "device": device,
             "perf_path": perf_path,
             "dataset": {
+                "name": "datapool_batch",
                 "params": {
                     "dataset_config": {
-                        "label": "Y.10D",
+                        "root": ROOT,              # 可选，DataPool 根目录；默认自动 ROOT
+                        "asset": "stock",           # 可选，默认 stock
+                        "label": "Y.10D",           # 标签字段，会映射到 stock/model_input/labels/Y.10D.bin
+                        "mode": "universe",         # 股票池模式
+                        "pool_name": None,          # mode="pool" 时使用，如 "zz800"
+                        "fix_stock": None,          # mode="fix" 时指定股票列表
+                        "sample_size": None,        # mode="sample" 时每日随机抽样数量
+                        "nanflit_set": ["dailyset"] # 用哪些 feature block 做 NaN 过滤
+                    },
+                    "feature_blocks": {
+                        "dailyset": {
+                            "kind": "daily",
+                            "data_path": "model_input/dGRU",
+                            "fields": [
+                                "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
+                                "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
+                                "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
+                            ],
+                            "lag": 20,
+                        },
+                        # "minuteset": {
+                        #     "kind": "minute",
+                        #     "data_path": "m_essentials",
+                        #     "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
+                        # },
                     }
-                }
-            },
+                },
+            }
         },
         "model": {
             "loss": {
