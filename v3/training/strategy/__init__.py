@@ -10,13 +10,7 @@ from __future__ import annotations
 
 from importlib import import_module
 
-_STRATEGY_MODULES = {
-    "plain": ("v3.training.strategy.plain", "run_plain"),
-    "rolling": ("v3.training.strategy.rolling", "run_rolling"),
-    "kfold": ("v3.training.strategy.kfold", "run_kfold"),
-    "bagging": ("v3.training.strategy.bagging", "run_bagging"),
-    "gridsearch": ("v3.training.strategy.gridsearch", "run_gridsearch"),
-}
+
 
 STRATEGY_PRESETS = {
     "plain": {
@@ -51,6 +45,13 @@ STRATEGY_PRESETS = {
 }
 
 
+_STRATEGY_MODULES = {
+    "plain": ("v3.training.strategy.plain", "run_plain"),
+    "rolling": ("v3.training.strategy.rolling", "run_rolling"),
+    "kfold": ("v3.training.strategy.kfold", "run_kfold"),
+    "bagging": ("v3.training.strategy.bagging", "run_bagging"),
+    "gridsearch": ("v3.training.strategy.gridsearch", "run_gridsearch"),
+}
 def get_strategy(name):
     key = str(name).lower()
     try:
@@ -60,14 +61,5 @@ def get_strategy(name):
     return getattr(import_module(module_name), function_name)
 
 
-def strategy_config(name, **params):
-    try:
-        config = STRATEGY_PRESETS[name]
-    except KeyError as exc:
-        raise KeyError(f"Unknown strategy preset {name!r}; available: {sorted(STRATEGY_PRESETS)}") from exc
-    from v3.config import merge_dict
 
-    return merge_dict(config, {"params": params} if params else None)
-
-
-__all__ = ["STRATEGY_PRESETS", "get_strategy", "strategy_config"]
+__all__ = ["STRATEGY_PRESETS", "get_strategy"]

@@ -40,7 +40,7 @@ GRU_FEATURE_BLOCKS = {
 }
 
 
-class GRUConfig(BaseConfig):
+class GRU_Config(BaseConfig):
     d_fields = D_FIELDS
     m_fields = M_FIELDS
 
@@ -56,8 +56,8 @@ def gru_feature_blocks():
     return GRU_FEATURE_BLOCKS
 
 
-@register_model("gru", config_class=GRUConfig)
-class GRUModel(nn.Module):
+@register_model("gru", config_class=GRU_Config)
+class GRU_Model(nn.Module):
     def __init__(self, input_size_d, input_size_m, hidden_size, num_layers, dropout):
         super().__init__()
         self.hidden_size = hidden_size
@@ -87,8 +87,6 @@ class GRUModel(nn.Module):
         return self.pred_head(dh).squeeze(-1)
 
 
-GRU_Arg = GRUConfig
-GRU_Model = GRUModel
 
 
 

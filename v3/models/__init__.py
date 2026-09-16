@@ -5,8 +5,23 @@ from importlib import import_module
 __all__ = ["GRUConfig", "GRUModel", "GRU_Arg", "GRU_Model"]
 
 
-def __getattr__(name):
-    if name in __all__:
-        module = import_module("v3.models.gru")
-        return getattr(module, name)
-    raise AttributeError(name)
+MODEL_DICT = {
+    "gru": ("v3.models.gru", "GRU_Model", "GRU_Config"),
+}
+
+def get_model_config(name):
+    key = str(name).lower()
+    try:
+        module_name, model, cfg = MODEL_DICT[key]
+    except KeyError as exc:
+        raise KeyError(f"Unknown strategy {name!r}; available: {sorted(MODEL_DICT)}") from exc
+    return getattr(import_module(module_name), cfg)
+
+
+def get_model(name):
+    key = str(name).lower()
+    try:
+        module_name, model, cfg = MODEL_DICT[key]
+    except KeyError as exc:
+        raise KeyError(f"Unknown strategy {name!r}; available: {sorted(MODEL_DICT)}") from exc
+    return getattr(import_module(module_name), model)

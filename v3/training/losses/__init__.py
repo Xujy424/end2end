@@ -19,7 +19,7 @@ from .rankic import (
     neural_sort_rank, sigmoid_rank, weighted_corr,
 )
 from .temporal import TemporalRankICLoss
-from v3.training.loss_presets import LOSS_PRESETS, loss_config
+from v3.config import merge_dict
 
 
 LOSS_REGISTRY = {
@@ -39,19 +39,6 @@ def build_loss(name: str, params=None):
     return loss_class(**dict(params or {}))
 
 
-__all__ = [
-    "ContextLoss", "DifferentiableRankICLoss", "DOMAIN_PROVIDERS", "DomainProvider",
-    "DomainWeightedRankICLoss", "IndustryDomainProvider", "IndexDomainProvider",
-    "LOSS_PRESETS", "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
-    "register_domain_provider", "TemporalRankICLoss", "build_loss",
-    "loss_config",
-    "neural_sort_rank", "sigmoid_rank", "weighted_corr",
-]
-
-
-
-
-from v3.config import merge_dict
 
 LOSS_PRESETS = {
     "mse": {"name": "mse", "params": {}},
@@ -76,3 +63,19 @@ def loss_config(name, **params):
     except KeyError as exc:
         raise KeyError(f"Unknown loss preset {name!r}; available: {sorted(LOSS_PRESETS)}") from exc
     return merge_dict(config, {"params": params} if params else None)
+
+
+
+__all__ = [
+    "ContextLoss", "DifferentiableRankICLoss", "DOMAIN_PROVIDERS", "DomainProvider",
+    "DomainWeightedRankICLoss", "IndustryDomainProvider", "IndexDomainProvider",
+    "LOSS_PRESETS", "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
+    "register_domain_provider", "TemporalRankICLoss", "build_loss",
+    "loss_config",
+    "neural_sort_rank", "sigmoid_rank", "weighted_corr",
+]
+
+
+
+
+

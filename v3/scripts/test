@@ -1,0 +1,106 @@
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+from typing import Any, Mapping
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from v3.config import merge_dict, BASE_CONFIG, BaseConfig
+from v3.models import get_model_config, get_model
+from v3.training.losses import LOSS_PRESETS
+from v3.dataset import DATASET_PRESETS
+from v3.training.strategy import STRATEGY_PRESETS, get_strategy
+from v3.training.trainer import TRAINING_PRESETS, get_trainer_class
+from v3.training.optimizers import OPTIMIZER_PRESETS
+from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
+
+
+
+def build_args(
+    model_name, model_update,
+    loss_name, loss_update,
+    dataset_update,
+    strategy_name, strategy_update,
+    training_update,
+    optimizer_update,
+):
+    model_cfg = merge_dict(get_model_config[model_name], model_update)
+    loss_cfg = merge_dict(LOSS_PRESETS[loss_name], loss_update)
+    dataset_cfg = merge_dict(DATASET_PRESETS, dataset_update)
+    strategy_cfg = merge_dict(STRATEGY_PRESETS[strategy_name], strategy_update)
+    trainer_cfg = merge_dict(TRAINING_PRESETS, training_update)
+    optimizer_cfg = merge_dict(OPTIMIZER_PRESETS, optimizer_update)
+
+    cfg = merge_dict(
+        BASE_CONFIG,
+        {
+            "trainer": trainer_cfg,
+            "dataset": dataset_cfg,
+            "loss": loss_cfg,
+            "model": model_cfg,
+            "optimizer": optimizer_cfg,
+            "strategy": strategy_cfg,
+        }
+    )
+    cfg = BaseConfig(cfg)
+    return cfg
+
+
+def main(
+    model_name, model_update,
+    loss_name, loss_update,
+    dataset_update,
+    strategy_name, strategy_update,
+    trainer_name, training_update,
+    optimizer_update,     
+):  
+    args = build_args(
+        model_name, model_update,
+        loss_name, loss_update,
+        dataset_update,
+        strategy_name, strategy_update,
+        training_update,
+        optimizer_update
+    )
+    model = get_model(model_name)
+    strategy_fn = get_strategy(args.strategy.name)
+    prediction, label, histories = strategy_fn(
+        args, model,
+        trainer=trainer_name, trainer_class=get_trainer_class(trainer_name)
+        **dict(args.strategy.get("params", {})),
+    )
+
+    _save_plots(args, f"{args.model.name}/{args.strategy.name}", prediction, label, histories)
+    return prediction, label, histories
+
+
+
+def _save_plots(args, run_name, prediction, label, histories):
+    if label is None:
+        return
+    out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / run_name
+
+    group_ax, group_ret = plot_group_return(prediction, label, num_group=10, title="Test Group Return")
+    group_ax.figure.tight_layout()
+    group_ax.figure.savefig(out_dir / "test_group_return.png", dpi=160)
+    group_ret.to_csv(out_dir / "test_group_return.csv")
+
+    ic_ax, ic_frame = plot_cumulative_ic(prediction, label, title="Test Cumulative IC / RankIC")
+    ic_ax.figure.tight_layout()
+    ic_ax.figure.savefig(out_dir / "test_cumulative_ic_rankic.png", dpi=160)
+    ic_frame.to_csv(out_dir / "test_cumulative_ic_rankic.csv")
+
+    if histories:
+        loss_ax, loss_frame = plot_loss_history(histories, title="Train / Valid Loss")
+        loss_ax.figure.tight_layout()
+        loss_ax.figure.savefig(out_dir / "loss_history.png", dpi=160)
+        loss_frame.to_csv(out_dir / "loss_history_merged.csv", index=False)
+
+    
+
+
+
+

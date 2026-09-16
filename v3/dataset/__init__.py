@@ -1,67 +1,52 @@
 from __future__ import annotations
 
-from importlib import import_module
-
+from v3.dataset.dataloader import *
 from v3.paths import DATA_ROOT
 
+
+
 DATASET_PRESETS = {
-    "gru_daily": {
-        "name": "datapool_batch",
-        "params": {
-            "dataset_config": {
-                "root": DATA_ROOT,
-                "asset": "stock",
-                "label": "Y.10D",
-                "mode": "universe",
-                "pool_name": None,
-                "fix_stock": None,
-                "sample_size": None,
-                "nan_filter_blocks": ["dailyset"],
+    "name": "batch",
+    "params": {
+        "dataset_config": {
+            "root": DATA_ROOT,
+            "asset": "stock",
+            "label": "Y.10D",
+            "mode": "universe",
+            "pool_name": None,
+            "fix_stock": None,
+            "sample_size": None,
+            "nan_filter_blocks": ["dailyset"],
+        },
+        "feature_blocks": {
+         "dailyset": {
+                "kind": "daily",
+                "data_path": "model_input/dGRU",
+                "fields": [
+                    "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
+                    "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
+                    "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
+                ],
+                "lag": 20,
             },
-            "feature_blocks": {},
+            "minuteset": {
+                "kind": "minute",
+                "data_path": "m_essentials",
+                "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
+            },
         },
     },
 }
 
 
-class _DatasetDict(dict):
-    def __getitem__(self, key):
-        if key == "datapool_batch":
-            from .dataloader import BatchDataset
+DATASET_DICT = {
+    'batch': BatchDataset,
+    'flatten': FlattenDataset,
+}
 
-            return BatchDataset
-        if key == "datapool_flatten":
-            from .dataloader import FlattenDataset
-
-            return FlattenDataset
-        raise KeyError(key)
-
-    def keys(self):
-        return {"datapool_batch": None, "datapool_flatten": None}.keys()
-
-
-DATASET_DICT = _DatasetDict()
-
-
-def dataset_config(name, **params):
-    try:
-        config = DATASET_PRESETS[name]
-    except KeyError as exc:
-        raise KeyError(f"Unknown dataset preset {name!r}; available: {sorted(DATASET_PRESETS)}") from exc
-    from v3.config import merge_dict
-
-    return merge_dict(config, params)
 
 __all__ = [
     "DATASET_DICT",
     "DATASET_PRESETS",
-    "dataset_config",
 ]
 
-
-def __getattr__(name):
-    if name in {"BaseDataset", "BatchDataset", "FlattenDataset"}:
-        dataloader = import_module("v3.dataset.dataloader")
-
-        return getattr(dataloader, name)
-    raise AttributeError(name)

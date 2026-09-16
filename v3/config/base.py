@@ -41,13 +41,9 @@ def merge_dict(base: Mapping[str, Any], override: Mapping[str, Any] | None = Non
 
 
 class BaseConfig:
-    def __init__(self, override: Mapping[str, Any] | None = None):
-        cfg = merge_dict(self.default(), override)
+    def __init__(self, cfg: Mapping[str, Any] | None = None):
         self.cfg = OmegaConf.create(cfg) if OmegaConf is not None else to_config(cfg)
         self.bind()
-
-    def default(self) -> Mapping[str, Any]:
-        raise NotImplementedError
 
     def bind(self):
         self.training = self.cfg.training

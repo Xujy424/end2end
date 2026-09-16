@@ -10,20 +10,20 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from v3.config import TemplateConfig, merge_dict
 from v3.dataset import dataset_config
-from v3.models.gru_presets import GRU_FEATURE_BLOCKS, GRU_MODEL_CONFIG
 from v3.paths import DATA_ROOT
-from v3.training.loss_presets import loss_config
-from v3.training.optimizer_presets import optimizer_config
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
 from v3.training.strategy import get_strategy, strategy_config
+from v3.models.gru import GRU_MODEL_CONFIG, GRU_FEATURE_BLOCKS
+from v3.training.losses import loss_config
+from v3.training.optimizers import optimizer_config
 
 
 def build_args(
     *,
     model="gru",
-    dataset="gru_daily",
+    dataset="batch",
     loss="domain_rankic_index",
-    optimizer="adamw_default",
+    optimizer="adamw",
     strategy="plain",
     model_params: Mapping[str, Any] | None = None,
     dataset_params: Mapping[str, Any] | None = None,
@@ -67,7 +67,7 @@ def build_args(
 def train_gru(
     *,
     model="gru",
-    dataset="gru_daily",
+    dataset="batch",
     loss="domain_rankic_index",
     optimizer="adamw_default",
     strategy="plain",
