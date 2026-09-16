@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from v3.training.trainer.supervised import SupervisedTrainerV3
+from v3.training.trainer import SupervisedTrainerV3
 
 
 def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, rolling_gap=1):
@@ -23,28 +23,40 @@ def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, 
             break
         if test_end > end:
             test_end = end
-        windows.append(((str(train_start.date()), str(train_end.date())),
-                        (str(valid_start.date()), str(valid_end.date())),
-                        (str(test_start.date()), str(test_end.date()))))
+        windows.append(
+            (
+                (str(train_start.date()), str(train_end.date())),
+                (str(valid_start.date()), str(valid_end.date())),
+                (str(test_start.date()), str(test_end.date())),
+            )
+        )
         train_start += pd.DateOffset(years=rolling_gap)
     return windows
 
 
-def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_params=None, run_name=None):
+def run_rolling(
+    args,
+    model_class,
+    *,
+    trainer_class=SupervisedTrainerV3,
+    rolling_windows=None,
+    window_params=None,
+    run_name=None,
+):
     if rolling_windows is None:
         if window_params is None:
-            raise ValueError("run_rolling_supervise requires rolling_windows or window_params")
+            raise ValueError("run_rolling requires rolling_windows or window_params")
         rolling_windows = get_rolling_windows(**window_params)
 
     predictions, labels, histories = [], [], []
     base_name = run_name or args.model.loss.name
     for idx, (train_win, valid_win, test_win) in enumerate(rolling_windows, start=1):
         fold_args = copy.deepcopy(args)
-        trainer = SupervisedTrainerV3(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
-        histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))  # loss_history frame
+        trainer = trainer_class(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
+        histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))
         pred, label = trainer.predict(test_win, save=True)
-        predictions.append(pred)  # frame
-        labels.append(label)      # frame
+        predictions.append(pred)
+        labels.append(label)
     pred_df = pd.concat(predictions).sort_index() if predictions else pd.DataFrame()
     label_df = pd.concat(labels).sort_index() if labels else pd.DataFrame()
     out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / base_name / "rolling"
@@ -52,5 +64,3 @@ def run_rolling_supervise(args, model_class, *, rolling_windows=None, window_par
     pred_df.to_csv(out_dir / "alpha_rolling.csv")
     label_df.to_csv(out_dir / "label_rolling.csv")
     return pred_df, label_df, histories
-
-

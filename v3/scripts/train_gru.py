@@ -9,10 +9,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from v3.ensemble.plain import run_plain
-from v3.dataset.datapool import ROOT
 from v3.models.gru import GRUConfig, GRUModel
+from v3.paths import DATA_ROOT
+from v3.training.strategy.plain import run_plain
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
+
+ROOT = DATA_ROOT
 
 TRAIN_RANGE = ("2016-01-01", "2023-12-31")
 VALID_RANGE = ("2024-01-01", "2024-12-31")

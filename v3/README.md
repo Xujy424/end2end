@@ -1,6 +1,6 @@
 # V3 Training Framework
 
-`v3` is a self-contained training package for the end-to-end stock modeling workflow. It keeps configuration, data, trainer implementations, ensemble wrappers, models, and runnable job scripts in package-local modules.
+`v3` is a self-contained training package for the end-to-end stock modeling workflow. It keeps configuration, data, trainer implementations, training strategies, models, and runnable job scripts in package-local modules.
 
 The goal is to make new models, losses, datasets, and training frameworks easier to add without changing unrelated modules.
 
@@ -10,8 +10,9 @@ The goal is to make new models, losses, datasets, and training frameworks easier
 v3/
   config/          BaseConfig and config merge utilities
   dataset/         Dataset backends, collate functions, feature config helpers
-  training/        Losses, optimizers, metrics, and trainer implementations
-  ensemble/        Plain, bagging, gridsearch, and result summaries
+  training/        Losses, optimizers, metrics, trainers, and strategies
+    trainer/       Learning modes such as supervised or unsupervised
+    strategy/      Plain, kfold, rolling, bagging, and gridsearch orchestration
   models/          Model definitions and model-specific default configs
   scripts/         Explicit-parameter job entry files
   registry.py      Lightweight model registry
@@ -20,8 +21,8 @@ v3/
 ## Design Boundaries
 
 - `v3.dataset` only knows how to read local data and return samples.
-- `v3.training` only knows how to train, validate, predict, and compute losses.
-- `v3.ensemble` owns only outer ensemble choices such as `plain`, `bagging`, and `gridsearch`.
+- `v3.training.trainer` owns learning modes such as supervised or unsupervised training.
+- `v3.training.strategy` owns outer training organization such as `plain`, `kfold`, `rolling`, `bagging`, and `gridsearch`.
 - `v3.models` owns model architecture and model-specific default config.
 - `v3.scripts.train_gru` is the GRU job entry point for explicit function calls from notebooks, schedulers, or Python job files.
 
@@ -29,54 +30,43 @@ This keeps the trainer from knowing about grid search, keeps the model from know
 
 ## GRU Entry Point
 
-Use `v3.scripts.train_gru.run_gru` with explicit keyword arguments.
+Use `v3.scripts.train_gru.train_gru` for the configured GRU supervised run.
 
 ```python
-from v3.scripts.train_gru import run_gru
+from v3.scripts.train_gru import train_gru
 
-pred, label, histories = run_gru(
-    framework="kfold",
-    loss="rankic",
-    folds=5,
-    loss_params={"temperature": 0.01, "method": "sigmoid"},
-)
+pred, label, histories = train_gru()
 ```
 
-Available frameworks:
+The current script is intentionally one clear chain:
 
 ```python
-framework="supervise"  # one train/valid/test split
-framework="rolling"    # rolling date windows
-framework="kfold"      # contiguous time-block cross validation
+train_gru.py -> training.strategy.plain.run_plain -> SupervisedTrainerV3
 ```
 
-Available ensemble modes:
+For other run layouts, call strategy modules explicitly:
 
 ```python
-ensemble="none"
-ensemble="bagging"
-ensemble="gridsearch"
+from v3.training.strategy.kfold import run_kfold
+from v3.training.strategy.rolling import run_rolling
+from v3.training.strategy.bagging import run_bagging
+from v3.training.strategy.gridsearch import run_gridsearch
 ```
 
 Examples:
 
 ```python
-# 5-fold RankIC training
-run_gru(framework="kfold", loss="rankic", folds=5)
+from v3.models.gru import GRUModel
+from v3.scripts.train_gru import build_args
+from v3.training.strategy.kfold import run_kfold
 
-# Rolling training with industry-domain RankIC
-run_gru(framework="rolling", loss="domain_industry")
-
-# Seed bagging around kfold training
-run_gru(framework="kfold", loss="rankic", ensemble="bagging", members=5, folds=5)
-
-# Grid search over loss parameters
-run_gru(
-    framework="kfold",
-    loss="rankic",
-    ensemble="gridsearch",
+args = build_args()
+pred, label, histories = run_kfold(
+    args,
+    GRUModel,
+    train_val_range=("2016-01-01", "2024-12-31"),
+    prediction_range=("2025-01-01", "2025-12-31"),
     folds=5,
-    grid={"temperature": [0.005, 0.01, 0.02], "method": ["sigmoid", "neural"]},
 )
 ```
 
@@ -85,38 +75,24 @@ run_gru(
 Pass nested dictionaries through `config_override`. The override is merged into the model default config.
 
 ```python
-from v3.scripts.train_gru import run_gru
+from v3.scripts.train_gru import train_gru
 
-run_gru(
-    framework="supervise",
-    loss="ic",
+train_gru(
     config_override={
         "training": {"device": "cuda:0", "num_epoch": 50},
         "optimizer": {"optim_params": {"lr": 5e-4}},
     },
-    train_range=("2016-01-01", "2021-12-31"),
-    valid_range=("2022-01-01", "2022-12-31"),
-    test_range=("2023-01-01", "2023-12-31"),
 )
 ```
 
 ## Loss Configuration
 
-Loss presets live in `v3.scripts.train_gru.LOSS_PRESETS`. You can use a preset name or pass a full loss config.
+Loss configuration lives in the model config. `v3.scripts.train_gru.build_args` sets the current run to index-domain RankIC:
 
 ```python
-run_gru(loss="temporal_rankic", loss_params={"turnover_rate": 0.2})
-
-run_gru(
-    loss={
-        "name": "domain_rankic",
-        "params": {
-            "domain_type": "industry",
-            "temperature": 0.01,
-            "provider_params": {"axis_root": "Z:/axis", "mask_root": "Z:/mask"},
-        },
-    }
-)
+args = build_args()
+print(args.model.loss.name)
+print(args.model.loss.params)
 ```
 
 To add a new loss, implement it under `v3/training/losses/` and register it in `v3/training/losses/__init__.py`.

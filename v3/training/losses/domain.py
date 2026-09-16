@@ -19,8 +19,10 @@ import numpy as np
 import torch
 from torch import Tensor
 
-from v3.dataset.datapool import ROOT
+from v3.paths import DATA_ROOT
 from .rankic import DifferentiableRankICLoss
+
+ROOT = DATA_ROOT
 
 
 class DomainProvider(ABC):

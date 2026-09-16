@@ -8,11 +8,19 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
-from .plain import run_plain
 from v3.training.metrics import IC, rankIC
+from .plain import run_plain
 
 
-def run_gridsearch(args, model_class, *, grid: Mapping[str, list[Any]] | None = None, framework="supervise", run_name="gridsearch", **kwargs):
+def run_gridsearch(
+    args,
+    model_class,
+    *,
+    grid: Mapping[str, list[Any]] | None = None,
+    strategy_fn=run_plain,
+    run_name="gridsearch",
+    **kwargs,
+):
     rows, outputs = [], {}
     grid = grid or {}
     keys = list(grid)
@@ -23,10 +31,9 @@ def run_gridsearch(args, model_class, *, grid: Mapping[str, list[Any]] | None = 
         run_args = copy.deepcopy(args)
         run_args.model.loss.params.update(params)
         alias = ",".join(f"{key}={value}" for key, value in params.items()) or "default"
-        pred, label, hist = run_plain(
+        pred, label, hist = strategy_fn(
             run_args,
             model_class,
-            framework=framework,
             run_name=f"{run_name}/{alias}",
             **kwargs,
         )

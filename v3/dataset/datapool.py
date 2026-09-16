@@ -8,7 +8,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path("Z:/") if Path("Z:/axis/dates.npy").is_file() else Path("/data/shanghai/xujiayi/workflow/data/")
+from v3.paths import DATA_ROOT
+
+ROOT = DATA_ROOT
 
 
 MIDDLE_BY_FOLDER = {
