@@ -70,7 +70,7 @@ def main(
     strategy_fn = get_strategy(args.strategy.name)
     prediction, label, histories = strategy_fn(
         args, model,
-        trainer=trainer_name, trainer_class=get_trainer_class(trainer_name)
+        trainer=trainer_name, trainer_class=get_trainer_class(trainer_name),
         **dict(args.strategy.get("params", {})),
     )
 

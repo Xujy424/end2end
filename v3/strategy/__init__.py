@@ -46,11 +46,11 @@ STRATEGY_PRESETS = {
 
 
 _STRATEGY_MODULES = {
-    "plain": ("v3.training.strategy.plain", "run_plain"),
-    "rolling": ("v3.training.strategy.rolling", "run_rolling"),
-    "kfold": ("v3.training.strategy.kfold", "run_kfold"),
-    "bagging": ("v3.training.strategy.bagging", "run_bagging"),
-    "gridsearch": ("v3.training.strategy.gridsearch", "run_gridsearch"),
+    "plain": ("v3.strategy.plain", "run_plain"),
+    "rolling": ("v3.strategy.rolling", "run_rolling"),
+    "kfold": ("v3.strategy.kfold", "run_kfold"),
+    "bagging": ("v3.strategy.bagging", "run_bagging"),
+    "gridsearch": ("v3.strategy.gridsearch", "run_gridsearch"),
 }
 def get_strategy(name):
     key = str(name).lower()

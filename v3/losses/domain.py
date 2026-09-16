@@ -53,7 +53,7 @@ def build_domain_provider(name: str, params=None) -> DomainProvider:
 
 
 class _AlignedBinaryProvider(DomainProvider):
-    def __init__(self, axis_root=ROOT/"axis", ticks_file="ticks.npy"):
+    def __init__(self, axis_root=ROOT/"axis", ticks_file="stock_ticks.npy"):
         self.axis_root = Path(axis_root)
         self.dates = np.load(self.axis_root / "dates.npy", allow_pickle=True).astype(str)
         self.ticks = np.load(self.axis_root / ticks_file, allow_pickle=True).astype(str)
