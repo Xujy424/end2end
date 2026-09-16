@@ -1,1 +1,1 @@
-"""Parallel, reviewable training framework; the legacy training package is untouched."""
+"""V3 training package: trainers, strategies, losses, metrics, and plots."""

@@ -9,7 +9,7 @@ The goal is to make new models, losses, datasets, and training frameworks easier
 ```text
 v3/
   config/          BaseConfig and config merge utilities
-  dataset/         Dataset backends, collate functions, feature config helpers
+  dataset/         Dataset backends and feature config helpers
   training/        Losses, optimizers, metrics, trainers, and strategies
     trainer/       Learning modes: supervised and self-supervised
     strategy/      Plain, kfold, rolling, bagging, and gridsearch orchestration
@@ -111,7 +111,7 @@ Dataset configuration is declared directly in each model config. There is no ext
             "pool_name": None,
             "fix_stock": None,
             "sample_size": None,
-            "nanflit_set": ["dailyset"],
+            "nan_filter_blocks": ["dailyset"],
         },
         "feature_blocks": {
             "dailyset": {
@@ -186,7 +186,7 @@ date_idx:          int
 tick_idxs:         (stock,)
 ```
 
-This matches the RankIC training style where `batch_size=1` means one trading day.
+This matches the RankIC training style where one trainer step means one trading day.
 
 Compared with the old `MultiBatchDataset` style, this path is usually faster and cleaner when data is stored as axis-aligned `.bin` files because:
 
@@ -194,7 +194,7 @@ Compared with the old `MultiBatchDataset` style, this path is usually faster and
 - memmap handles are cached instead of reopened by each backend;
 - date/tick axes are shared across every field;
 - each training step materializes only the current daily cross-section and lag window;
-- the collate function is nearly a no-op for `batch_size=1`, avoiding extra cat/unsqueeze work;
+- DataLoader returns dataset items directly, avoiding extra collation work;
 - `pin_memory=True` plus `non_blocking=True` keeps CPU-to-GPU transfer efficient.
 
 Recommended loader settings for GPU training:
@@ -203,7 +203,6 @@ Recommended loader settings for GPU training:
 config_override = {
     "training": {
         "dataset": {"name": "datapool_daily"},
-        "batch_size": 1,
         "num_workers": 2,
         "pin_memory": True,
         "persistent_workers": True,

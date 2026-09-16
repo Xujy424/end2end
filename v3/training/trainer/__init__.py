@@ -1,4 +1,4 @@
-from .supervised import SupervisedTrainerV3, run_supervise
+from .supervised import SupervisedTrainerV3
 from .self_supervised import BasicSelfSupervisedTrainerV3
 
 TRAINER_REGISTRY = {
@@ -23,6 +23,5 @@ __all__ = [
     "SupervisedTrainerV3",
     "TRAINER_REGISTRY",
     "resolve_trainer_class",
-    "run_supervise",
     "BasicSelfSupervisedTrainerV3",
 ]

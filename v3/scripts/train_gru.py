@@ -11,8 +11,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from v3.models.gru import GRUConfig, GRUModel
 from v3.paths import DATA_ROOT
-from v3.training.strategy.plain import run_plain
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
+from v3.training.strategy.plain import run_plain
 
 ROOT = DATA_ROOT
 
@@ -36,51 +36,42 @@ def build_args(
                 "name": "datapool_batch",
                 "params": {
                     "dataset_config": {
-                        "root": ROOT,              # 可选，DataPool 根目录；默认自动 ROOT
-                        "asset": "stock",           # 可选，默认 stock
-                        "label": "Y.10D",           # 标签字段，会映射到 stock/model_input/labels/Y.10D.bin
-                        "mode": "universe",         # 股票池模式
-                        "pool_name": None,          # mode="pool" 时使用，如 "zz800"
-                        "fix_stock": None,          # mode="fix" 时指定股票列表
-                        "sample_size": None,        # mode="sample" 时每日随机抽样数量
-                        "nanflit_set": ["dailyset"] # 用哪些 feature block 做 NaN 过滤
+                        "root": ROOT,
+                        "asset": "stock",
+                        "label": "Y.10D",
+                        "mode": "universe",
+                        "pool_name": None,
+                        "fix_stock": None,
+                        "sample_size": None,
+                        "nan_filter_blocks": ["dailyset"],
                     },
                     "feature_blocks": {
                         "dailyset": {
                             "kind": "daily",
                             "data_path": "model_input/dGRU",
-                            "fields": [
-                                "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
-                                "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
-                                "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
-                            ],
+                            "fields": GRUConfig.d_fields,
                             "lag": 20,
                         },
-                        # "minuteset": {
-                        #     "kind": "minute",
-                        #     "data_path": "m_essentials",
-                        #     "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
-                        # },
-                    }
+                    },
                 },
-            }
+            },
         },
         "model": {
             "loss": {
-                "name": "mse",
-                # "params": {
-                #     "temperature": 0.01,
-                #     "method": "sigmoid",
-                #     "domain_type": "index",
-                #     "domains": ["hs300", "zz500", "zz1000", "others"],
-                #     "domain_weights": [0.025, 0.025, 0.8, 0.15],
-                #     "provider_params": {
-                #         "axis_root": ROOT / "axis",
-                #         "mask_root": ROOT / "stock/index/mask",
-                #         "ticks_file": "stock_ticks.npy",
-                #     },
-                # },
-            }
+                "name": "domain_rankic",
+                "params": {
+                    "temperature": 0.01,
+                    "method": "sigmoid",
+                    "domain_type": "index",
+                    "domains": ["hs300", "zz500", "zz1000", "others"],
+                    "domain_weights": [0.025, 0.025, 0.8, 0.15],
+                    "provider_params": {
+                        "axis_root": ROOT / "axis",
+                        "mask_root": ROOT / "stock/index/mask",
+                        "ticks_file": "stock_ticks.npy",
+                    },
+                },
+            },
         },
     }
     if num_epoch is not None:
@@ -95,7 +86,7 @@ def train_gru(
     perf_path="~/PycharmProjects/Models/XJY_end2end/0_result/",
     device="cuda:0",
     num_epoch: int | None = None,
-    run_name="index_domain_rankic_supervise_2016_2025",
+    run_name="index_domain_rankic_supervised_2016_2025",
     config_override: Mapping[str, Any] | None = None,
 ):
     args = build_args(

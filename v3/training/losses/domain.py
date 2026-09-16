@@ -154,7 +154,7 @@ class DomainWeightedRankICLoss(DifferentiableRankICLoss):
             raise RuntimeError("Domain RankIC needs a configured dataset and batch context")
         date_ids = np.asarray(context["date_idx"]).reshape(-1)
         if len(date_ids) != 1:
-            raise ValueError("Domain RankIC requires batch_size=1: one daily cross-section")
+            raise ValueError("Domain RankIC requires one daily cross-section per trainer step")
         tick_ids = np.asarray(context["tick_idxs"]).reshape(-1)
         memberships = self.provider.get(
             np.asarray(self.dataset.dates)[date_ids[0]], np.asarray(self.dataset.ticks)[tick_ids]

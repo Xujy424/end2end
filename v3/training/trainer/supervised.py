@@ -19,7 +19,7 @@ from v3.training.optimizers import EarlyStopping, build_optimizer_bundle
 
 
 class SupervisedTrainerV3:
-    """Context-aware daily trainer kept separate from the legacy framework."""
+    """Context-aware daily supervised trainer."""
 
     def __init__(self, args, model_class, loss=None, run_name=None):
         self.args = copy.deepcopy(args)
@@ -166,6 +166,7 @@ class SupervisedTrainerV3:
             train_loss = self._iterate(train_loader, True)
             valid_loss = self._iterate(valid_loader, False)
             records.append({"epoch": epoch + 1, "train_loss": train_loss, "valid_loss": valid_loss})
+            print(f"Epoch {epoch + 1:03d} | train_loss={train_loss:.6f} | valid_loss={valid_loss:.6f}")
             if self.scheduler is not None:
                 self.scheduler.step(valid_loss) if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) else self.scheduler.step()
             stopper(valid_loss, self.model, self.model_path)
@@ -207,26 +208,5 @@ class SupervisedTrainerV3:
             label_df.to_csv(self.perf_dir / "label.csv")
         return pred_df, label_df
 
-
-
-
-
-
-
-
-def run_supervise(
-    args,
-    model_class,
-    *,
-    train_range=None,
-    valid_range=None,
-    test_range=None,
-    prediction_range=None,
-    run_name=None,
-):
-    trainer = SupervisedTrainerV3(args, model_class, run_name=run_name)
-    history = trainer.fit(train_range=train_range, valid_range=valid_range)
-    pred, label = trainer.predict(prediction_range or test_range, save=True)
-    return pred, label, [history]
 
 

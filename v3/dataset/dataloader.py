@@ -34,7 +34,7 @@ class BaseDataset(Dataset):
         self.dataset_config = dict(dataset_config)
         self.feature_blocks = dict(feature_blocks)
 
-        self.root = Path(self.dataset_config.get("root", ROOT))
+        self.root = Path(self.dataset_config.get("root") or ROOT)
         self.asset = self.dataset_config.get("asset", "stock")
         self.pool = DataPool(self.root, asset=self.asset)
         self.dates = self.pool.axis.trade_dates.astype("datetime64[D]", copy=False)
@@ -48,7 +48,8 @@ class BaseDataset(Dataset):
         self.pool_name = self.dataset_config.get("pool_name")
         self.fix_stock = self.dataset_config.get("fix_stock")
         self.sample_size = self.dataset_config.get("sample_size")
-        self.nan_filter_blocks = set(self.dataset_config.get("nanflit_set") or ["dailyset"])
+        nan_filter_blocks = self.dataset_config.get("nan_filter_blocks")
+        self.nan_filter_blocks = set(nan_filter_blocks or ["dailyset"])
 
         self.label_name = self._normalize_label(self.dataset_config.get("label"))
         self.label_array = self.pool.load(self.label_name) if self.label_name else None

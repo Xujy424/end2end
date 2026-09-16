@@ -26,7 +26,7 @@
     "pool_name": None,          # mode="pool" 时使用，如 "zz800"
     "fix_stock": None,          # mode="fix" 时指定股票列表
     "sample_size": None,        # mode="sample" 时每日随机抽样数量
-    "nanflit_set": ["dailyset"] # 用哪些 feature block 做 NaN 过滤
+    "nan_filter_blocks": ["dailyset"] # 用哪些 feature block 做 NaN 过滤
 }
 
 "universe"  # 全市场可交易且 label 非空股票

@@ -144,9 +144,9 @@ class DataPool:
 
         path = self.asset_root / f"{name}.bin"
         if not path.is_file():
-            legacy_path = self.root / f"{name}.bin"
-            if legacy_path.is_file():
-                path = legacy_path
+            fallback_path = self.root / f"{name}.bin"
+            if fallback_path.is_file():
+                path = fallback_path
         if not path.is_file():
             raise FileNotFoundError(f"field does not exist: {path}")
 

@@ -162,6 +162,7 @@ class BasicSelfSupervisedTrainerV3:
             train_loss = self._iterate(train_loader, True)
             valid_loss = self._iterate(valid_loader, False) if valid_loader is not None else train_loss
             records.append({"epoch": epoch + 1, "train_loss": train_loss, "valid_loss": valid_loss})
+            print(f"Epoch {epoch + 1:03d} | train_loss={train_loss:.6f} | valid_loss={valid_loss:.6f}")
             if self.scheduler is not None:
                 self.scheduler.step(valid_loss) if isinstance(self.scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau) else self.scheduler.step()
             stopper(valid_loss, self.model, self.model_path)
