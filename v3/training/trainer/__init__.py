@@ -7,7 +7,7 @@ TRAINER_REGISTRY = {
 }
 
 
-def resolve_trainer_class(trainer=None, trainer_class=None):
+def get_trainer_class(trainer=None, trainer_class=None):
     if trainer_class is not None:
         return trainer_class
     if trainer is None:
