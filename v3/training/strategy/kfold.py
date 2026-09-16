@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from v3.training.trainer import SupervisedTrainerV3
+from v3.training.trainer import resolve_trainer_class
 
 
 def contiguous_kfold_indices(sample_count: int, folds: int = 5):
@@ -21,13 +21,15 @@ def run_kfold(
     args,
     model_class,
     *,
-    trainer_class=SupervisedTrainerV3,
+    trainer="supervised",
+    trainer_class=None,
     train_val_range=None,
     prediction_range=None,
     folds=5,
     run_name=None,
     standardize=True,
 ):
+    trainer_class = resolve_trainer_class(trainer, trainer_class)
     if train_val_range is None or prediction_range is None:
         raise ValueError("run_kfold requires train_val_range and prediction_range")
     predictions, histories, label_df = [], [], None

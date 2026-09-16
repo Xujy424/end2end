@@ -37,10 +37,13 @@ def run_gridsearch(
             run_name=f"{run_name}/{alias}",
             **kwargs,
         )
-        rows.append({"run": alias, **params, **_summarize_prediction(pred, label)})
+        summary = _summarize_prediction(pred, label) if label is not None else _summarize_histories(hist)
+        rows.append({"run": alias, **params, **summary})
         outputs[alias] = {"prediction": pred, "label": label, "histories": hist}
 
-    summary = pd.DataFrame(rows).sort_values("rank_ic_mean", ascending=False)
+    summary = pd.DataFrame(rows)
+    sort_col = "rank_ic_mean" if "rank_ic_mean" in summary else "valid_loss_min"
+    summary = summary.sort_values(sort_col, ascending=sort_col != "rank_ic_mean")
     summary.to_csv(_result_dir(args, run_name) / "summary.csv", index=False)
     return summary, outputs
 
@@ -64,4 +67,15 @@ def _summarize_prediction(prediction: pd.DataFrame, label: pd.DataFrame) -> dict
         "rank_ic_ir": float(np.nanmean(rank_ic) / rank_std) if rank_std else np.nan,
         "ic_mean": float(np.nanmean(pearson_ic)),
         "ic_ir": float(np.nanmean(pearson_ic) / ic_std) if ic_std else np.nan,
+    }
+
+
+def _summarize_histories(histories) -> dict[str, float]:
+    frames = [item for item in histories if isinstance(item, pd.DataFrame) and not item.empty]
+    if not frames:
+        return {"valid_loss_min": np.nan, "train_loss_min": np.nan}
+    frame = pd.concat(frames, ignore_index=True)
+    return {
+        "valid_loss_min": float(frame["valid_loss"].min()) if "valid_loss" in frame else np.nan,
+        "train_loss_min": float(frame["train_loss"].min()) if "train_loss" in frame else np.nan,
     }

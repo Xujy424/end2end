@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from v3.training.trainer import SupervisedTrainerV3
+from v3.training.trainer import resolve_trainer_class
 
 
 def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, rolling_gap=1):
@@ -38,11 +38,13 @@ def run_rolling(
     args,
     model_class,
     *,
-    trainer_class=SupervisedTrainerV3,
+    trainer="supervised",
+    trainer_class=None,
     rolling_windows=None,
     window_params=None,
     run_name=None,
 ):
+    trainer_class = resolve_trainer_class(trainer, trainer_class)
     if rolling_windows is None:
         if window_params is None:
             raise ValueError("run_rolling requires rolling_windows or window_params")

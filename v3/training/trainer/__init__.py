@@ -1,15 +1,28 @@
 from .supervised import SupervisedTrainerV3, run_supervise
-from .unsupervised import UnsupervisedTrainerV3
+from .self_supervised import BasicSelfSupervisedTrainerV3
 
 TRAINER_REGISTRY = {
     "supervised": SupervisedTrainerV3,
-    "supervise": SupervisedTrainerV3,
-    "unsupervised": UnsupervisedTrainerV3,
+    "self_supervised": BasicSelfSupervisedTrainerV3,
 }
+
+
+def resolve_trainer_class(trainer=None, trainer_class=None):
+    if trainer_class is not None:
+        return trainer_class
+    if trainer is None:
+        return SupervisedTrainerV3
+    if isinstance(trainer, str):
+        try:
+            return TRAINER_REGISTRY[trainer.lower()]
+        except KeyError as exc:
+            raise KeyError(f"Unknown trainer {trainer!r}; available: {sorted(TRAINER_REGISTRY)}") from exc
+    return trainer
 
 __all__ = [
     "SupervisedTrainerV3",
     "TRAINER_REGISTRY",
+    "resolve_trainer_class",
     "run_supervise",
-    "UnsupervisedTrainerV3",
+    "BasicSelfSupervisedTrainerV3",
 ]

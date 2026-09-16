@@ -65,6 +65,8 @@ class BaseDataset(Dataset):
         }
         self.max_lag = max((block.lag for block in self.blocks.values() if block.kind == "daily"), default=1)
         self.date_indices = np.arange(max(self.start_idx, self.max_lag - 1), self.end_idx + 1, dtype=np.int64)
+        self.valid_date_mask = np.zeros(len(self.dates), dtype=bool)
+        self.valid_date_mask[self.date_indices] = True
         self._candidate_ticks = [self._select_candidate_ticks(date_idx) for date_idx in self.date_indices]
 
     def _date_range_positions(self, start_date, end_date) -> tuple[int, int]:

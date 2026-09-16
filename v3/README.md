@@ -11,7 +11,7 @@ v3/
   config/          BaseConfig and config merge utilities
   dataset/         Dataset backends, collate functions, feature config helpers
   training/        Losses, optimizers, metrics, trainers, and strategies
-    trainer/       Learning modes such as supervised or unsupervised
+    trainer/       Learning modes: supervised and self-supervised
     strategy/      Plain, kfold, rolling, bagging, and gridsearch orchestration
   models/          Model definitions and model-specific default configs
   scripts/         Explicit-parameter job entry files
@@ -21,7 +21,7 @@ v3/
 ## Design Boundaries
 
 - `v3.dataset` only knows how to read local data and return samples.
-- `v3.training.trainer` owns learning modes such as supervised or unsupervised training.
+- `v3.training.trainer` owns learning modes: `supervised` and `self_supervised`.
 - `v3.training.strategy` owns outer training organization such as `plain`, `kfold`, `rolling`, `bagging`, and `gridsearch`.
 - `v3.models` owns model architecture and model-specific default config.
 - `v3.scripts.train_gru` is the GRU job entry point for explicit function calls from notebooks, schedulers, or Python job files.

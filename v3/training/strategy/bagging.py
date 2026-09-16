@@ -36,7 +36,8 @@ def run_bagging(
     ensemble = sum(predictions) / len(predictions)
     out_dir = _result_dir(args, run_name)
     ensemble.to_csv(out_dir / "alpha_ensemble.csv")
-    labels.to_csv(out_dir / "label.csv")
+    if labels is not None:
+        labels.to_csv(out_dir / "label.csv")
     return ensemble, labels, histories
 
 

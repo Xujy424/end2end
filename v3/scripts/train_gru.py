@@ -82,7 +82,7 @@ def train_gru(
     prediction, label, histories = run_plain(
         args,
         GRUModel,
-        framework="supervise",
+        trainer="supervised",
         run_name=run_name,
         train_range=TRAIN_RANGE,
         valid_range=VALID_RANGE,
