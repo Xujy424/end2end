@@ -31,13 +31,13 @@ def build_args(
     loss_cfg = merge_dict(LOSS_PRESETS[loss_name], loss_update)
     dataset_cfg = merge_dict(DATASET_PRESETS, dataset_update)
     strategy_cfg = merge_dict(STRATEGY_PRESETS[strategy_name], strategy_update)
-    trainer_cfg = merge_dict(TRAINING_PRESETS, training_update)
+    training_cfg = merge_dict(TRAINING_PRESETS, training_update)
     optimizer_cfg = merge_dict(OPTIMIZER_PRESETS, optimizer_update)
 
     cfg = merge_dict(
         BASE_CONFIG,
         {
-            "trainer": trainer_cfg,
+            "trainer": training_cfg,
             "dataset": dataset_cfg,
             "loss": loss_cfg,
             "model": model_cfg,
@@ -102,7 +102,18 @@ def _save_plots(args, run_name, prediction, label, histories):
     
 
 if __name__ == "__main__":
-    main()
+    main(
+        model_name='gru', 
+        model_update=None,
+        loss_name='domain_rankic_index', 
+        loss_update=None,
+        dataset_update=None,
+        strategy_name='plain', 
+        strategy_update=None,
+        trainer_name='supervised', 
+        training_update=None,
+        optimizer_update=None, 
+    )
 
 
 

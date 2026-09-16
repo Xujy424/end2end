@@ -25,3 +25,6 @@ def get_model(name):
     except KeyError as exc:
         raise KeyError(f"Unknown strategy {name!r}; available: {sorted(MODEL_DICT)}") from exc
     return getattr(import_module(module_name), model)
+
+
+__all__ = ["MODEL_DICT", "get_model_config", "get_model"]
