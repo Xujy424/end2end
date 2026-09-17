@@ -72,7 +72,7 @@ class _AlignedBinaryProvider(DomainProvider):
 class IndexDomainProvider(_AlignedBinaryProvider):
     """Build index-universe domains from aligned constituent mask files."""
 
-    def __init__(self, axis_root=ROOT/"axis", mask_root=ROOT/"index/mask",
+    def __init__(self, axis_root=ROOT/"axis", mask_root=ROOT/"stock/index/mask",
                  domains=("hs300", "zz500", "zz1000", "others"), ticks_file="stock_ticks.npy"):
         super().__init__(axis_root, ticks_file)
         self.mask_root = Path(mask_root)
@@ -100,7 +100,7 @@ class IndexDomainProvider(_AlignedBinaryProvider):
 class IndustryDomainProvider(_AlignedBinaryProvider):
     """Build one domain per industry code from an aligned numeric mask file."""
 
-    def __init__(self, axis_root=ROOT/"axis", mask_root=ROOT/"industry", domains=None,
+    def __init__(self, axis_root=ROOT/"axis", mask_root=ROOT/"stock/industry", domains=None,
                  mask_file="industry.bin", dtype="float64", ticks_file="stock_ticks.npy"):
         super().__init__(axis_root, ticks_file)
         self.mask_root = Path(mask_root)
