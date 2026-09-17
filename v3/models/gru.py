@@ -3,7 +3,7 @@ from __future__ import annotations
 import torch.nn as nn
 
 from v3.config import BaseConfig
-from v3.registry import register_model
+from v3.models.registry import register_model
 
 
 D_FIELDS = [
