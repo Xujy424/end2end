@@ -150,7 +150,15 @@ class SupervisedTrainerV3:
         return float(np.mean(values)) if values else float("nan")
 
     
-    def fit(self, train_loader=None, valid_loader=None, save_loss=True, train_range=None, valid_range=None):
+    def fit(
+        self,
+        train_loader=None,
+        valid_loader=None,
+        save_loss=True,
+        train_range=None,
+        valid_range=None,
+        warm_start_path=None,
+    ):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
 
         if train_range is None or valid_range is None:
@@ -159,9 +167,23 @@ class SupervisedTrainerV3:
         train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
         valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
 
-        stopper = EarlyStopping(self.args.training.early_stop_patience, self.args.training.early_stop_delta)
-
         records = []
+        initial_best_loss = np.inf
+        if warm_start_path is not None:
+            self._load_model(warm_start_path)
+            initial_best_loss = self._iterate(valid_loader, False)
+            if not np.isfinite(initial_best_loss):
+                raise FloatingPointError(f"Non-finite warm-start validation loss: {initial_best_loss}")
+            self._save_model(self.model_path)
+            records.append({"epoch": 0, "train_loss": np.nan, "valid_loss": initial_best_loss})
+            print(f"Warm start | valid_loss={initial_best_loss:.6f}")
+
+        stopper = EarlyStopping(
+            self.args.training.early_stop_patience,
+            self.args.training.early_stop_delta,
+            best_loss=initial_best_loss,
+        )
+
         for epoch in range(int(self.args.training.num_epoch)):
             train_loss = self._iterate(train_loader, True)
             valid_loss = self._iterate(valid_loader, False)
@@ -177,11 +199,20 @@ class SupervisedTrainerV3:
             frame.to_csv(self.perf_dir / "loss_history.csv", index=False)
         return frame
 
+    def _load_model(self, model_path):
+        module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
+        module.load_state_dict(torch.load(Path(model_path), map_location=self.device))
+
+    def _save_model(self, model_path):
+        module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
+        Path(model_path).parent.mkdir(parents=True, exist_ok=True)
+        torch.save(module.state_dict(), Path(model_path))
+
 
     @torch.no_grad()
     def predict(self, date_range=None, model_path=None, save=True):
+        self._load_model(model_path or self.model_path)
         module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
-        module.load_state_dict(torch.load(Path(model_path or self.model_path), map_location=self.device))
         module.eval()
 
         if date_range is None:

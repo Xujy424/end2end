@@ -39,7 +39,7 @@ def cal_alpha(alpha, label, num_group=10):
         temp_ret[~group_ix.T] = np.nan
         group_ret[i] = np.nanmean(temp_ret, axis=1)
     group_ret = group_ret - np.nanmean(group_ret, axis=0)
-    col_list = list(range(1, num_group + 1))[::-1]
+    col_list = list(range(1, num_group + 1))
     group_ret = pd.DataFrame(
         group_ret.T,
         columns=col_list,
@@ -68,7 +68,7 @@ def calc_group_ret(alpha, label, num_group=10):
         temp_ret[~group_ix.T] = np.nan
         group_ret[i] = np.nanmean(temp_ret, axis=1)
     group_ret = group_ret - np.nanmean(group_ret, axis=0)
-    col_list = list(range(1, num_group + 1))[::-1]
+    col_list = list(range(1, num_group + 1))
     group_ret = pd.DataFrame(
         group_ret.T,
         columns=col_list,
