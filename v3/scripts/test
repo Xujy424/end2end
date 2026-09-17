@@ -110,7 +110,7 @@ if __name__ == "__main__":
         loss_name='domain_rankic_index', 
         loss_update=None,
         dataset_update=None,
-        strategy_name='plain', 
+        strategy_name='rolling', 
         strategy_update=None,
         trainer_name='supervised', 
         training_update=None,

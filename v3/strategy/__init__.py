@@ -25,7 +25,7 @@ STRATEGY_PRESETS = {
         "name": "rolling",
         "params": {
             "window_params": {
-                "start_dt": "2016-01-01",
+                "start_dt": "2013-01-01",
                 "end_dt": "2025-12-31",
                 "train_len": 7,
                 "valid_len": 1,
