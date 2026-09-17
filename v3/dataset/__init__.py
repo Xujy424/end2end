@@ -29,11 +29,11 @@ DATASET_PRESETS = {
                 ],
                 "lag": 20,
             },
-            "minuteset": {
-                "kind": "minute",
-                "data_path": "m_essentials",
-                "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
-            },
+            # "minuteset": {
+            #     "kind": "minute",
+            #     "data_path": "m_essentials",
+            #     "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
+            # },
         },
     },
 }
