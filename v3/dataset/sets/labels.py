@@ -25,7 +25,8 @@ pct = np.memmap(
 
 def calc_forward_return(pct, offset=2, horizon=5):
     """Calculate forward compounded return labels."""
-    windows = np.lib.stride_tricks.sliding_window_view(pct[offset:], horizon, axis=0)
+    returns = np.asarray(pct, dtype=np.float32) / 100.0
+    windows = np.lib.stride_tricks.sliding_window_view(returns[offset:], horizon, axis=0)
     forward_return = np.prod(1 + windows, axis=-1) - 1
     label = np.full(pct.shape, np.nan, dtype=np.float32)
     label[: len(forward_return)] = forward_return

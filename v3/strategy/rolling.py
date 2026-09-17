@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from v3.trainer import resolve_trainer_class
+from v3.trainer import get_trainer_class
 
 
 def get_rolling_windows(start_dt, end_dt, train_len=7, valid_len=1, test_len=1, rolling_gap=1):
@@ -44,7 +44,7 @@ def run_rolling(
     window_params=None,
     run_name=None,
 ):
-    trainer_class = resolve_trainer_class(trainer, trainer_class)
+    trainer_class = get_trainer_class(trainer, trainer_class)
     if rolling_windows is None:
         if window_params is None:
             raise ValueError("run_rolling requires rolling_windows or window_params")

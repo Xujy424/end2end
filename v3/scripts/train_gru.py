@@ -121,6 +121,7 @@ def _save_plots(args, run_name, prediction, label, histories):
     if label is None:
         return
     out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / run_name
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     group_ax, group_ret = plot_group_return(prediction, label, num_group=10, title="Test Group Return")
     group_ax.figure.tight_layout()

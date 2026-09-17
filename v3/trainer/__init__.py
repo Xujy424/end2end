@@ -23,4 +23,5 @@ __all__ = [
     "SupervisedTrainerV3",
     "BasicSelfSupervisedTrainerV3",
     "TRAINER_REGISTRY",
+    "get_trainer_class",
 ]
