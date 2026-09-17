@@ -52,13 +52,21 @@ def run_rolling(
 
     predictions, labels, histories = [], [], []
     base_name = run_name or args.loss.name
+    previous_model_path = None
     for idx, (train_win, valid_win, test_win) in enumerate(rolling_windows, start=1):
         fold_args = copy.deepcopy(args)
         trainer = trainer_class(fold_args, model_class, run_name=f"{base_name}/rolling/window_{idx:02d}")
-        histories.append(trainer.fit(train_range=train_win, valid_range=valid_win))
+        histories.append(
+            trainer.fit(
+                train_range=train_win,
+                valid_range=valid_win,
+                warm_start_path=previous_model_path,
+            )
+        )
         pred, label = trainer.predict(test_win, save=True)
         predictions.append(pred)
         labels.append(label)
+        previous_model_path = trainer.model_path
     pred_df = pd.concat(predictions).sort_index() if predictions else pd.DataFrame()
     label_df = pd.concat(labels).sort_index() if labels else pd.DataFrame()
     out_dir = Path(args.training.perf_path).expanduser() / args.model.name / "v3" / base_name / "rolling"
