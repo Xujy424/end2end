@@ -1,5 +1,5 @@
 TRAINING_PRESETS = {
-    "device": "cuda:0",
+    "device": "cuda:4",
     "seed": 480,
     "num_epoch": 100,
     "early_stop_patience": 3,
