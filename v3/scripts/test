@@ -18,6 +18,8 @@ from v3.trainer import get_trainer_class
 from v3.optimizers import OPTIMIZER_PRESETS
 from v3.training.plots import plot_cumulative_ic, plot_group_return, plot_loss_history
 
+from v3.dataset.datapool import DataPool
+
 
 
 def build_args(
@@ -105,10 +107,12 @@ def _save_plots(args, run_name, prediction, label, histories):
 
 if __name__ == "__main__":
 
+    import numpy as np
+
     prediction, label, histories = main(
         model_name='gru', 
         model_update=None,
-        loss_name='mse', #'domain_rankic_index', 
+        loss_name='domain_rankic_index', #'domain_rankic_index', 
         loss_update=None,
         dataset_update=None,
         strategy_name='rolling', 
@@ -117,6 +121,14 @@ if __name__ == "__main__":
         training_update=None,
         optimizer_update=None, 
     )
+    prediction.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/gru/rolling_domain_rankic/pred_20210104_20251231.csv')
+    data = DataPool(root='/data/shanghai/xujiayi/workflow/data/')
+    pred = np.full((len(data.axis.full_dates),len(data.axis.full_ticks)),np.nan)
+    start_idx = data.axis.date_position(prediction.index[0])
+    end_idx = data.axis.date_position(prediction.index[-1])
+    pred[start_idx,end_idx] = prediction.values
+    pred.astype(np.float32).tofile('/data/shanghai/xujiayi/workflow/data/stock/factor_pool/gru.bin')
+    #label.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/gru/rolling_domain_rankic/label_20210104_20251231.csv')
 
 
 
