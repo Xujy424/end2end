@@ -37,7 +37,7 @@ class MultiStageSupervisedTrainerV3(SupervisedTrainerV3):
 
         for stage in stages:
             self._configure_stage(stage)
-            ordered = getattr(self.loss, "requires_ordered_batches", False)
+            ordered = getattr(self.loss, "requires_ordered_batches", False)   #？
             stage_train_loader = train_loader or self.make_loader(
                 self.make_dataset(train_range, stage.dataset_update),
                 shuffle=not ordered,
