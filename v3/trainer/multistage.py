@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-import copy
-import re
-
 import pandas as pd
 from torch import nn
 
@@ -35,105 +31,56 @@ class MultiStageSupervisedTrainerV3(SupervisedTrainerV3):
         train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
         valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
 
-        stages = self._stage_configs()
-        final_model_path = self.model_path
-        original_optimizer = copy.deepcopy(self.args.optimizer)
-        original_num_epoch = int(self.args.training.num_epoch)
-        incoming_path = warm_start_path or self._initial_model_path()
+        stages = list(self.args.training.stages)
+        if not stages:
+            raise ValueError("training.stages cannot be empty")
+
         histories = []
 
-        try:
-            for index, stage in enumerate(stages, start=1):
-                stage_name = str(stage.get("name", f"stage_{index:02d}"))
-                self._configure_stage(stage)
-                self._configure_stage_optimizer(stage, original_optimizer)
-                self.args.training.num_epoch = int(stage.get("num_epoch", original_num_epoch))
+        for stage in stages:
+            self._configure_stage(stage)
 
-                stage_path = self.perf_dir / "stages" / f"{index:02d}_{_safe_name(stage_name)}" / "best_model.pth"
-                self.model_path = stage_path
-                history = super().fit(
-                    train_loader=train_loader,
-                    valid_loader=valid_loader,
-                    save_loss=False,
-                    train_range=train_range,
-                    valid_range=valid_range,
-                    warm_start_path=incoming_path,
-                )
-                self._load_model(stage_path)
-                history.insert(0, "stage", stage_name)
-                history.insert(1, "stage_index", index)
-                histories.append(history)
-                incoming_path = stage_path
-        finally:
-            self.args.optimizer = original_optimizer
-            self.args.training.num_epoch = original_num_epoch
-            self.model_path = final_model_path
+            history = super().fit(
+                train_loader=train_loader,
+                valid_loader=valid_loader,
+                save_loss=False,
+                train_range=train_range,
+                valid_range=valid_range,
+                warm_start_path=warm_start_path,
+                num_epoch=stage.num_epoch,
+            )
+            self._load_model(self.model_path)
+            history.insert(0, "stage", stage.name)
+            histories.append(history)
+            warm_start_path = self.model_path
 
-        self._save_model(final_model_path)
-        result = pd.concat(histories, ignore_index=True) if histories else pd.DataFrame()
+        result = pd.concat(histories, ignore_index=True)
         if save_loss:
             result.to_csv(self.perf_dir / "loss_history.csv", index=False)
         return result
 
-    def _stage_configs(self):
-        stages = self.args.training.get("stages", None)
-        if stages:
-            return list(stages)
-
-        transfer = self.args.training.get("transfer", None)
-        if transfer:
-            stage = dict(transfer)
-            stage.setdefault("name", "transfer")
-            return [stage]
-        raise ValueError("Multi-stage training requires training.stages")
-
-    def _initial_model_path(self):
-        multistage = self.args.training.get("multistage", {}) or {}
-        transfer = self.args.training.get("transfer", {}) or {}
-        checkpoint = multistage.get("initial_model_path") or transfer.get("pretrained_path")
-        return Path(checkpoint) if checkpoint else None
-
     def _configure_stage(self, stage):
-        freeze_patterns = tuple(stage.get("freeze_patterns", ()))
-        train_patterns = tuple(stage.get("train_patterns", ()))
+        train_modules = set(stage.train_modules)
         module = self.model.module if isinstance(self.model, nn.DataParallel) else self.model
 
         for name, param in module.named_parameters():
-            param.requires_grad = not train_patterns or _matches(name, train_patterns)
-            if _matches(name, freeze_patterns):
-                param.requires_grad = False
+            param.requires_grad = name.split(".", 1)[0] in train_modules
 
-        trainable = [name for name, param in module.named_parameters() if param.requires_grad]
-        frozen = [name for name, param in module.named_parameters() if not param.requires_grad]
+        trainable = [param for param in module.parameters() if param.requires_grad]
         if not trainable:
-            raise ValueError(f"Stage {stage.get('name', '<unnamed>')!r} has no trainable parameters")
+            raise ValueError(f"Stage {stage.name!r} has no trainable parameters")
 
         self._frozen_modules = [
             child
-            for name, child in module.named_modules()
-            if name
-            and any(True for _ in child.parameters(recurse=True))
-            and all(not param.requires_grad for param in child.parameters(recurse=True))
+            for name, child in module.named_children()
+            if name not in train_modules
         ]
-        print(f"Stage {stage.get('name', '<unnamed>')} trainable params: {trainable}")
-        print(f"Stage {stage.get('name', '<unnamed>')} frozen params: {frozen}")
-
-    def _configure_stage_optimizer(self, stage, base_optimizer):
-        optimizer_config = merge_dict(base_optimizer, stage.get("optimizer", None))
-        self.args.optimizer = to_config(optimizer_config)
-        trainable = [param for param in self.model.parameters() if param.requires_grad]
-        self.optimizer, self.scheduler = build_optimizer_bundle(self.args.optimizer, trainable)
+        optimizer_config = to_config(merge_dict(self.args.optimizer, stage.get("optimizer")))
+        self.optimizer, self.scheduler = build_optimizer_bundle(optimizer_config, trainable)
+        print(f"Stage {stage.name}: train {sorted(train_modules)}")
 
     def _set_model_mode(self, training):
         super()._set_model_mode(training)
         if training:
             for module in self._frozen_modules:
                 module.eval()
-
-
-def _matches(name, patterns):
-    return any(pattern == "*" or pattern in name for pattern in patterns)
-
-
-def _safe_name(value):
-    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value).strip("_") or "stage"

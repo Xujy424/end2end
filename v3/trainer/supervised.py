@@ -166,6 +166,7 @@ class SupervisedTrainerV3:
         train_range=None,
         valid_range=None,
         warm_start_path=None,
+        num_epoch=None,
     ):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
 
@@ -174,6 +175,7 @@ class SupervisedTrainerV3:
         
         train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
         valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
+        epochs = int(num_epoch or self.args.training.num_epoch)
 
         records = []
         initial_best_loss = np.inf
@@ -192,7 +194,7 @@ class SupervisedTrainerV3:
             best_loss=initial_best_loss,
         )
 
-        for epoch in range(int(self.args.training.num_epoch)):
+        for epoch in range(epochs):
             train_loss = self._iterate(train_loader, True)
             valid_loss = self._iterate(valid_loader, False)
             records.append({"epoch": epoch + 1, "train_loss": train_loss, "valid_loss": valid_loss})

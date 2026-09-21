@@ -136,14 +136,12 @@ if __name__ == "__main__":
             {
                 "name": "pretrain",
                 "num_epoch": 30,
-                "freeze_patterns": [],
-                "train_patterns": ["d_gru", "pred_head"],
+                "train_modules": ["d_gru", "pred_head"],
             },
             {
                 "name": "fixed_encoder",
                 "num_epoch": 20,
-                "freeze_patterns": ["d_gru"],
-                "train_patterns": ["pred_head"],
+                "train_modules": ["pred_head"],
                 "optimizer": {"optim_params": {"lr": 1e-4}},
             },
         ]
@@ -160,13 +158,13 @@ if __name__ == "__main__":
         training_update=training_update,
         optimizer_update=None, 
     )
-    prediction.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/transfer_gru/rolling_domain_rankic/pred_20210104_20251231.csv')
+    prediction.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/multistage_gru/rolling_domain_rankic/pred_20210104_20251231.csv')
     data = DataPool(root='/data/shanghai/xujiayi/workflow/data/')
     pred = np.full((len(data.axis.full_dates),len(data.axis.full_ticks)),np.nan)
     start_idx = data.axis.date_position(prediction.index[0])
     end_idx = data.axis.date_position(prediction.index[-1])
     pred[start_idx,end_idx] = prediction.values
-    pred.astype(np.float32).tofile('/data/shanghai/xujiayi/workflow/data/stock/factor_pool/transfer_gru.bin')
+    pred.astype(np.float32).tofile('/data/shanghai/xujiayi/workflow/data/stock/factor_pool/multistage_gru.bin')
     #label.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/gru/rolling_domain_rankic/label_20210104_20251231.csv')
 
 
