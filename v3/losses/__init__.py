@@ -51,7 +51,7 @@ LOSS_PRESETS = {
             "method": "sigmoid",
             "domain_type": "index",
             "domains": ["hs300", "zz500", "zz1000", "others"],
-            "domain_weights": [0.025, 0.025, 0.8, 0.15],
+            "domain_weights": [0.3, 0.3, 0.3, 0.1],
         },
     },
 }
