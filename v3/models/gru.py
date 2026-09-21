@@ -12,28 +12,23 @@ D_FIELDS = [
     "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
 ]
 
-M_FIELDS = ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"]
-
-
 GRU_Config = {
     "name": "gru",
     "params": {
-        "input_size_d": len(D_FIELDS),
-        "input_size_m": len(M_FIELDS),
+        "input_size": len(D_FIELDS),
         "hidden_size": 128,
         "num_layers": 4,
         "dropout": 0.5,
     },
 }
 
-
 @register_model("gru", config_class=GRU_Config)
 class GRU_Model(nn.Module):
-    def __init__(self, input_size_d, input_size_m, hidden_size, num_layers, dropout):
+    def __init__(self, input_size, hidden_size, num_layers, dropout):
         super().__init__()
         self.hidden_size = hidden_size
         self.d_gru = nn.GRU(
-            input_size_d,
+            input_size,
             hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -56,9 +51,3 @@ class GRU_Model(nn.Module):
         dh, _ = self.d_gru(dx)
         dh = dh[:, -1, :]
         return self.pred_head(dh).squeeze(-1)
-
-
-
-
-
-

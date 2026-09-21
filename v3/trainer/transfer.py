@@ -1,0 +1,4 @@
+from v3.trainer.multistage import MultiStageSupervisedTrainerV3
+
+
+TransferSupervisedTrainerV3 = MultiStageSupervisedTrainerV3

@@ -33,7 +33,9 @@ class SupervisedTrainerV3:
                 device_ids=list(self.args.training.available_gpu), 
                 output_device=int(self.args.training.main_gpu)
             )
-        
+
+        self._prepare_model()
+
         self.loss = loss or build_loss(
             self.args.loss.name, 
             self.args.loss.get("params", {})
@@ -47,6 +49,12 @@ class SupervisedTrainerV3:
         self.perf_dir = Path(self.args.training.perf_path).expanduser() / self.args.model.name / "v3" / suffix
         self.perf_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.perf_dir / "best_model.pth"
+
+    def _prepare_model(self):
+        """Hook for trainers that load or freeze model parameters before optimization."""
+
+    def _set_model_mode(self, training):
+        self.model.train(training)
 
     def _set_seed(self, seed):
         random.seed(seed)
@@ -111,7 +119,7 @@ class SupervisedTrainerV3:
 
     def _iterate(self, loader, training):
         self.loss.configure_dataset(loader.dataset)
-        self.model.train(training)
+        self._set_model_mode(training)
         ordered = getattr(self.loss, "requires_ordered_batches", False)
         lag = int(self.args.training.get("prediction_lag", 1))
         history = deque(maxlen=lag)
