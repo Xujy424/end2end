@@ -11,10 +11,6 @@ from v3.trainer.supervised import SupervisedTrainerV3
 class MultiStageSupervisedTrainerV3(SupervisedTrainerV3):
     """Run multiple parameter-freezing stages inside one training window."""
 
-    def __init__(self, args, model_class, loss=None, run_name=None):
-        self._frozen_modules = []
-        super().__init__(args, model_class, loss=loss, run_name=run_name)
-
     def fit(
         self,
         train_loader=None,
@@ -78,17 +74,6 @@ class MultiStageSupervisedTrainerV3(SupervisedTrainerV3):
         if not trainable:
             raise ValueError(f"Stage {stage.name!r} has no trainable parameters")
 
-        self._frozen_modules = [
-            child
-            for name, child in module.named_children()
-            if name not in train_modules
-        ]
         optimizer_config = to_config(merge_dict(self.args.optimizer, stage.get("optimizer")))
         self.optimizer, self.scheduler = build_optimizer_bundle(optimizer_config, trainable)
         print(f"Stage {stage.name}: train {sorted(train_modules)}")
-
-    def _set_model_mode(self, training):
-        super()._set_model_mode(training)
-        if training:
-            for module in self._frozen_modules:
-                module.eval()
