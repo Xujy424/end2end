@@ -33,7 +33,9 @@ class SupervisedTrainerV3:
                 device_ids=list(self.args.training.available_gpu), 
                 output_device=int(self.args.training.main_gpu)
             )
-        
+
+        self._prepare_model()
+
         self.loss = loss or build_loss(
             self.args.loss.name, 
             self.args.loss.get("params", {})
@@ -47,6 +49,12 @@ class SupervisedTrainerV3:
         self.perf_dir = Path(self.args.training.perf_path).expanduser() / self.args.model.name / "v3" / suffix
         self.perf_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.perf_dir / "best_model.pth"
+
+    def _prepare_model(self):
+        """Hook for trainers that load or freeze model parameters before optimization."""
+
+    def _set_model_mode(self, training):
+        self.model.train(training)
 
     def _set_seed(self, seed):
         random.seed(seed)
@@ -111,7 +119,7 @@ class SupervisedTrainerV3:
 
     def _iterate(self, loader, training):
         self.loss.configure_dataset(loader.dataset)
-        self.model.train(training)
+        self._set_model_mode(training)
         ordered = getattr(self.loss, "requires_ordered_batches", False)
         lag = int(self.args.training.get("prediction_lag", 1))
         history = deque(maxlen=lag)
@@ -158,6 +166,7 @@ class SupervisedTrainerV3:
         train_range=None,
         valid_range=None,
         warm_start_path=None,
+        num_epoch=None,
     ):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
 
@@ -166,6 +175,7 @@ class SupervisedTrainerV3:
         
         train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
         valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
+        epochs = int(num_epoch or self.args.training.num_epoch)
 
         records = []
         initial_best_loss = np.inf
@@ -184,7 +194,7 @@ class SupervisedTrainerV3:
             best_loss=initial_best_loss,
         )
 
-        for epoch in range(int(self.args.training.num_epoch)):
+        for epoch in range(epochs):
             train_loss = self._iterate(train_loader, True)
             valid_loss = self._iterate(valid_loader, False)
             records.append({"epoch": epoch + 1, "train_loss": train_loss, "valid_loss": valid_loss})

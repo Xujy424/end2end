@@ -1,9 +1,11 @@
 from .supervised import SupervisedTrainerV3
 from .self_supervised import BasicSelfSupervisedTrainerV3
+from .multistage import MultiStageSupervisedTrainerV3
 
 TRAINER_REGISTRY = {
     "supervised": SupervisedTrainerV3,
     "self_supervised": BasicSelfSupervisedTrainerV3,
+    "multistage": MultiStageSupervisedTrainerV3,
 }
 
 def get_trainer_class(trainer=None, trainer_class=None):
@@ -22,6 +24,7 @@ def get_trainer_class(trainer=None, trainer_class=None):
 __all__ = [
     "SupervisedTrainerV3",
     "BasicSelfSupervisedTrainerV3",
+    "MultiStageSupervisedTrainerV3",
     "TRAINER_REGISTRY",
     "get_trainer_class",
 ]
