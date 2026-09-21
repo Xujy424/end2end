@@ -23,13 +23,11 @@ class MultiStageSupervisedTrainerV3(SupervisedTrainerV3):
         train_range=None,
         valid_range=None,
         warm_start_path=None,
+        train_indices=None,
+        valid_indices=None,
     ):
         if train_range is None or valid_range is None:
             raise ValueError("fit requires explicit train_range and valid_range")
-
-        ordered = getattr(self.loss, "requires_ordered_batches", False)
-        train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
-        valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
 
         stages = list(self.args.training.stages)
         if not stages:
@@ -39,10 +37,20 @@ class MultiStageSupervisedTrainerV3(SupervisedTrainerV3):
 
         for stage in stages:
             self._configure_stage(stage)
+            ordered = getattr(self.loss, "requires_ordered_batches", False)
+            stage_train_loader = train_loader or self.make_loader(
+                self.make_dataset(train_range, stage.dataset_update),
+                shuffle=not ordered,
+                indices=train_indices,
+            )
+            stage_valid_loader = valid_loader or self.make_loader(
+                self.make_dataset(valid_range, stage.dataset_update),
+                indices=valid_indices,
+            )
 
             history = super().fit(
-                train_loader=train_loader,
-                valid_loader=valid_loader,
+                train_loader=stage_train_loader,
+                valid_loader=stage_valid_loader,
                 save_loss=False,
                 train_range=train_range,
                 valid_range=valid_range,

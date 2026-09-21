@@ -158,11 +158,18 @@ class BasicSelfSupervisedTrainerV3:
         train_range=None,
         valid_range=None,
         warm_start_path=None,
+        train_indices=None,
+        valid_indices=None,
     ):
         if train_range is None:
             raise ValueError("fit requires explicit train_range")
-        train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=True)
-        valid_loader = valid_loader or (self.make_loader(self.make_dataset(valid_range)) if valid_range is not None else None)
+        train_loader = train_loader or self.make_loader(
+            self.make_dataset(train_range), shuffle=True, indices=train_indices
+        )
+        valid_loader = valid_loader or (
+            self.make_loader(self.make_dataset(valid_range), indices=valid_indices)
+            if valid_range is not None else None
+        )
 
         records = []
         initial_best_loss = np.inf

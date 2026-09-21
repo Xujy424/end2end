@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 
 from v3.dataset import DATASET_DICT
+from v3.config import merge_dict
 from v3.losses import build_loss
 from v3.optimizers import EarlyStopping, build_optimizer_bundle
 
@@ -63,8 +64,8 @@ class SupervisedTrainerV3:
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
 
-    def make_dataset(self, date_range):
-        params = copy.deepcopy(self.args.dataset.params)
+    def make_dataset(self, date_range, dataset_update=None):
+        params = merge_dict(self.args.dataset.params, dataset_update)
         return DATASET_DICT[self.args.dataset.name](
             start_date=date_range[0],
             end_date=date_range[1],
@@ -167,14 +168,20 @@ class SupervisedTrainerV3:
         valid_range=None,
         warm_start_path=None,
         num_epoch=None,
+        train_indices=None,
+        valid_indices=None,
     ):
         ordered = getattr(self.loss, "requires_ordered_batches", False)
 
         if train_range is None or valid_range is None:
             raise ValueError("fit requires explicit train_range and valid_range")
         
-        train_loader = train_loader or self.make_loader(self.make_dataset(train_range), shuffle=not ordered)
-        valid_loader = valid_loader or self.make_loader(self.make_dataset(valid_range))
+        train_loader = train_loader or self.make_loader(
+            self.make_dataset(train_range), shuffle=not ordered, indices=train_indices
+        )
+        valid_loader = valid_loader or self.make_loader(
+            self.make_dataset(valid_range), indices=valid_indices
+        )
         epochs = int(num_epoch or self.args.training.num_epoch)
 
         records = []

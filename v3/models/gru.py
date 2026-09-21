@@ -2,20 +2,14 @@ from __future__ import annotations
 
 import torch.nn as nn
 
-from v3.config import BaseConfig
+from v3.dataset import DAILY_FIELDS, MINUTE_FIELDS
 from v3.models.registry import register_model
-
-
-D_FIELDS = [
-    "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
-    "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
-    "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
-]
 
 GRU_Config = {
     "name": "gru",
     "params": {
-        "input_size": len(D_FIELDS),
+        "daily_input_size": len(DAILY_FIELDS),
+        "minute_input_size": len(MINUTE_FIELDS),
         "hidden_size": 128,
         "num_layers": 4,
         "dropout": 0.5,
@@ -24,11 +18,13 @@ GRU_Config = {
 
 @register_model("gru", config_class=GRU_Config)
 class GRU_Model(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, dropout):
+    def __init__(self, daily_input_size, minute_input_size, hidden_size, num_layers, dropout):
         super().__init__()
         self.hidden_size = hidden_size
-        self.d_gru = nn.GRU(
-            input_size,
+        self.daily_input = nn.Linear(daily_input_size, hidden_size)
+        self.minute_input = nn.Linear(minute_input_size, hidden_size)
+        self.gru = nn.GRU(
+            hidden_size,
             hidden_size,
             num_layers=num_layers,
             batch_first=True,
@@ -47,7 +43,9 @@ class GRU_Model(nn.Module):
         )
 
     def forward(self, x):
-        dx = x["dailyset"]
-        dh, _ = self.d_gru(dx)
-        dh = dh[:, -1, :]
-        return self.pred_head(dh).squeeze(-1)
+        if "minuteset" in x:
+            sequence = self.minute_input(x["minuteset"])
+        else:
+            sequence = self.daily_input(x["dailyset"])
+        hidden, _ = self.gru(sequence)
+        return self.pred_head(hidden[:, -1, :]).squeeze(-1)

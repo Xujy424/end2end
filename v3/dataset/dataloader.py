@@ -150,7 +150,7 @@ class BaseDataset(Dataset):
             return np.asarray(arr[start:date_idx + 1, ticks], dtype=np.float32).T
         if arr.ndim != 3:
             raise ValueError(f"minute block {block.name} expects 3-D field, got {field}: {arr.shape}")
-        return np.asarray(arr[date_idx, :, ticks], dtype=np.float32).T
+        return np.asarray(arr[date_idx, :, ticks], dtype=np.float32)
 
     def _read_block(self, block: FeatureBlock, date_idx: int, ticks: np.ndarray) -> np.ndarray:
         arrays = [self._read_field(field, block, date_idx, ticks) for field in block.fields]

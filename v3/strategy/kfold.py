@@ -39,16 +39,12 @@ def run_kfold(
         fold_args = copy.deepcopy(args)
         fold_args.training.seed = int(fold_args.training.seed) + fold - 1
         trainer = trainer_class(fold_args, model_class, run_name=f"{base_name}/kfold/fold_{fold:02d}")
-        dataset = trainer.make_dataset(train_val_range)
-        ordered = getattr(trainer.loss, "requires_ordered_batches", False)
-        train_loader = trainer.make_loader(dataset, indices=train_idx, shuffle=not ordered)
-        valid_loader = trainer.make_loader(dataset, indices=valid_idx)
         histories.append(
             trainer.fit(
-                train_loader=train_loader,
-                valid_loader=valid_loader,
                 train_range=train_val_range,
                 valid_range=train_val_range,
+                train_indices=train_idx,
+                valid_indices=valid_idx,
             )
         )
         pred, label_df = trainer.predict(prediction_range, save=True)

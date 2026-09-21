@@ -15,6 +15,7 @@ ROOT = DATA_ROOT
 
 MIDDLE_BY_FOLDER = {
     "m_essentials": 241,
+    "mgru": 241,
     "con_forecast": 4,
     "con_forecast_eq": 4,
     "con_forecast_wgt": 4,

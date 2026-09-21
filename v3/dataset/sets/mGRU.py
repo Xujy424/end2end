@@ -11,6 +11,8 @@ from v3.dataset.datapool import DataPool, ROOT
 from v3.dataset.processor import *
 
 
+output_dir = ROOT / "stock/model_input/mGRU"
+output_dir.mkdir(parents=True, exist_ok=True)
 
 data = DataPool(ROOT, asset="stock")
 mclose = data.load('m_essentials/close').transpose(0,2,1)
@@ -30,21 +32,21 @@ close2dopen = np.divide(
     out=np.full_like(mclose,0.0),
     where=dopen[:,:,np.newaxis]!=0
 )
-close2dopen.transpose(0,2,1).astype(np.float32).tofile(ROOT/'stock/model_input/mGRU/close2dopen.bin')
+close2dopen.transpose(0,2,1).astype(np.float32).tofile(output_dir / 'close2dopen.bin')
 
 high2dopen = np.divide(
     mhigh, dopen[:,:,np.newaxis],
     out=np.full_like(mhigh,0.0),
     where=dopen[:,:,np.newaxis]!=0
 )
-high2dopen.transpose(0,2,1).astype(np.float32).tofile(ROOT/'stock/model_input/mGRU/high2dopen.bin')
+high2dopen.transpose(0,2,1).astype(np.float32).tofile(output_dir / 'high2dopen.bin')
 
 low2dopen = np.divide(
     mlow, dopen[:,:,np.newaxis],
     out=np.full_like(mlow,0.0),
     where=dopen[:,:,np.newaxis]!=0
 )
-low2dopen.transpose(0,2,1).astype(np.float32).tofile(ROOT/'stock/model_input/mGRU/low2dopen.bin')
+low2dopen.transpose(0,2,1).astype(np.float32).tofile(output_dir / 'low2dopen.bin')
 
 ppos = np.divide(
     mclose-floor[:,:,np.newaxis],
@@ -52,7 +54,7 @@ ppos = np.divide(
     out=np.full_like(mclose, 0.5),
     where=(ceil[:,:,np.newaxis]-floor[:,:,np.newaxis])!=0
 )
-ppos.transpose(0,2,1).astype(np.float32).tofile(ROOT/'stock/model_input/mGRU/ppos.bin')
+ppos.transpose(0,2,1).astype(np.float32).tofile(output_dir / 'ppos.bin')
 ppos
 
 
@@ -71,4 +73,4 @@ arr2rollmean = np.divide(
     out=np.full_like(arr, 0),
     where=arr_rm[:,:,np.newaxis]!=0
 )
-arr2rollmean.transpose(0,2,1).astype(np.float32).tofile(ROOT/'stock/model_input/mGRU/volume_adj2rollmean.bin')
+arr2rollmean.transpose(0,2,1).astype(np.float32).tofile(output_dir / 'volume_adj2rollmean.bin')

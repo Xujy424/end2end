@@ -11,7 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from v3.config import merge_dict, BASE_CONFIG, BaseConfig
 from v3.models import get_model_config, get_model
 from v3.losses import LOSS_PRESETS
-from v3.dataset import DATASET_PRESETS
+from v3.dataset import DATASET_PRESETS, DAILY_FEATURE_BLOCKS, MINUTE_FEATURE_BLOCKS
 from v3.strategy import STRATEGY_PRESETS, get_strategy
 from v3.training import TRAINING_PRESETS
 from v3.trainer import get_trainer_class
@@ -136,12 +136,14 @@ if __name__ == "__main__":
             {
                 "name": "pretrain",
                 "num_epoch": 30,
-                "train_modules": ["d_gru", "pred_head"],
+                "dataset_update": {"feature_blocks": MINUTE_FEATURE_BLOCKS},
+                "train_modules": ["minute_input", "gru", "pred_head"],
             },
             {
                 "name": "fixed_encoder",
                 "num_epoch": 20,
-                "train_modules": ["pred_head"],
+                "dataset_update": {"feature_blocks": DAILY_FEATURE_BLOCKS},
+                "train_modules": ["daily_input", "pred_head"],
                 "optimizer": {"optim_params": {"lr": 1e-4}},
             },
         ]

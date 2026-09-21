@@ -4,6 +4,33 @@ from v3.dataset.dataloader import *
 from v3.training.paths import DATA_ROOT
 
 
+DAILY_FIELDS = [
+    "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
+    "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
+    "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
+]
+
+MINUTE_FIELDS = [
+    "close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean",
+]
+
+DAILY_FEATURE_BLOCKS = {
+    "dailyset": {
+        "kind": "daily",
+        "data_path": "model_input/dGRU",
+        "fields": DAILY_FIELDS,
+        "lag": 20,
+    },
+}
+
+MINUTE_FEATURE_BLOCKS = {
+    "minuteset": {
+        "kind": "minute",
+        "data_path": "model_input/mGRU",
+        "fields": MINUTE_FIELDS,
+    },
+}
+
 
 DATASET_PRESETS = {
     "name": "batch",
@@ -18,23 +45,7 @@ DATASET_PRESETS = {
             "sample_size": None,
             "nan_filter_blocks": ["dailyset"],
         },
-        "feature_blocks": {
-         "dailyset": {
-                "kind": "daily",
-                "data_path": "model_input/dGRU",
-                "fields": [
-                    "close_zscore", "open_zscore", "high_zscore", "low_zscore", "logvolume_zscore", "turnover_zscore",
-                    "close_pct", "open_pct", "high_pct", "low_pct", "logvolume_pct", "turnover_pct",
-                    "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
-                ],
-                "lag": 20,
-            },
-            # "minuteset": {
-            #     "kind": "minute",
-            #     "data_path": "m_essentials",
-            #     "fields": ["close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean", "amount2rollmean"],
-            # },
-        },
+        "feature_blocks": DAILY_FEATURE_BLOCKS,
     },
 }
 
@@ -48,5 +59,9 @@ DATASET_DICT = {
 __all__ = [
     "DATASET_DICT",
     "DATASET_PRESETS",
+    "DAILY_FEATURE_BLOCKS",
+    "MINUTE_FEATURE_BLOCKS",
+    "DAILY_FIELDS",
+    "MINUTE_FIELDS",
 ]
 
