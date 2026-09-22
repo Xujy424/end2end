@@ -108,6 +108,7 @@ def _save_plots(args, run_name, prediction, label, histories):
 if __name__ == "__main__":
 
     import numpy as np
+    import pandas as pd
 
     # prediction, label, histories = main(
     #     model_name='gru', 
@@ -160,12 +161,13 @@ if __name__ == "__main__":
         training_update=training_update,
         optimizer_update=None, 
     )
-    prediction.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/multistage_gru/rolling_domain_rankic/pred_20210104_20251231.csv')
+    prediction.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/gru/rolling/pred_20210104_20251231.csv')
+    prediction = pd.read_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/gru/rolling/pred_20210104_20251231.csv', index_col=0)
     data = DataPool(root='/data/shanghai/xujiayi/workflow/data/')
     pred = np.full((len(data.axis.full_dates),len(data.axis.full_ticks)),np.nan)
     start_idx = data.axis.date_position(prediction.index[0])
     end_idx = data.axis.date_position(prediction.index[-1])
-    pred[start_idx,end_idx] = prediction.values
+    pred[start_idx:end_idx+1, :data.axis.tick_count] = prediction.values
     pred.astype(np.float32).tofile('/data/shanghai/xujiayi/workflow/data/stock/factor_pool/multistage_gru.bin')
     #label.to_csv('/home/xujiayi/PycharmProjects/Models/XJY_end2end/0_result/gru/v3/gru/rolling_domain_rankic/label_20210104_20251231.csv')
 
