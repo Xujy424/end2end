@@ -10,10 +10,6 @@ DAILY_FIELDS = [
     "close2open", "high2open", "low2open", "high2low", "high2close", "low2close",
 ]
 
-MINUTE_FIELDS = [
-    "close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean",
-]
-
 DAILY_FEATURE_BLOCKS = {
     "dailyset": {
         "kind": "daily",
@@ -23,6 +19,12 @@ DAILY_FEATURE_BLOCKS = {
     },
 }
 
+
+
+MINUTE_FIELDS = [
+    "close2dopen", "high2dopen", "low2dopen", "ppos", "volume_adj2rollmean",
+]
+
 MINUTE_FEATURE_BLOCKS = {
     "minuteset": {
         "kind": "minute",
@@ -30,6 +32,8 @@ MINUTE_FEATURE_BLOCKS = {
         "fields": MINUTE_FIELDS,
     },
 }
+
+
 
 PRIME_FIELDS = {
     "bull": [
@@ -66,6 +70,8 @@ PRIME_FEATURE_BLOCKS = {
 }
 
 
+
+
 DATASET_PRESETS = {
     "name": "batch",
     "params": {
@@ -83,11 +89,11 @@ DATASET_PRESETS = {
     },
 }
 
-
 DATASET_DICT = {
     'batch': BatchDataset,
     'flatten': FlattenDataset,
 }
+
 
 
 __all__ = [

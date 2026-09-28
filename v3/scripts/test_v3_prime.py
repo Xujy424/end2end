@@ -35,7 +35,11 @@ if __name__ == "__main__":
             "vol_neutral_weight": 0.05,
             "direction_weight": 0.01,
             "temperature": 0.1,
+            "pairwise_temperature": 1.0,
             "top_fraction": 0.2,
+            "pairwise_margin": 0.0,
+            "min_label_gap": 0.0,
+            "max_pairs": 65536,
             "min_samples": 10,
         },
     }

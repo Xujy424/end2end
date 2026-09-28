@@ -153,7 +153,7 @@ class SupervisedTrainerV3:
                     continue
                 if temporal:
                     temporal = {key: item.to(self.device) for key, item in temporal.items()}  # 搬到GPU
-                    context.update(temporal)   # date_idx, tick_idxs, current_indices, previous_preds
+                    context.update(temporal)   # date_idx, tick_idxs, current_indices, previous_preds, model_output
 
                 loss = self.loss(preds, batch["label"].reshape(-1), context)
                 if not torch.isfinite(loss):
