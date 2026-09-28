@@ -117,6 +117,15 @@ class SupervisedTrainerV3:
         self.optimizer.step()
         self.optimizer.zero_grad(set_to_none=True)
 
+    @staticmethod
+    def _unpack_model_output(output):
+        """Accept tensor models and richer models that expose loss-side components."""
+        if isinstance(output, Mapping):
+            if "preds" not in output:
+                raise KeyError("structured model output must contain a 'preds' tensor")
+            return output["preds"].reshape(-1), output
+        return output.reshape(-1), None
+
 
     def _iterate(self, loader, training):
         self.loss.configure_dataset(loader.dataset)
@@ -132,9 +141,11 @@ class SupervisedTrainerV3:
         for raw_batch in tqdm(loader, desc="Train" if training else "Valid"):
             batch = self._to_device(raw_batch)
             with torch.set_grad_enabled(training):
-                preds = self.model(batch["feats"]).reshape(-1)
+                preds, model_output = self._unpack_model_output(self.model(batch["feats"]))
 
                 context = {"date_idx": raw_batch["date_idx"], "tick_idxs": raw_batch["tick_idxs"]}
+                if model_output is not None:
+                    context["model_output"] = model_output
                 temporal = self._temporal_context(raw_batch, history[0]) if ordered and len(history) == lag else None   # 共同股票位置：共同股票预测值
                 snapshot = {int(tick): pred.detach().cpu() for tick, pred in zip(np.asarray(raw_batch["tick_idxs"]).reshape(-1), preds)}  # 当前股票idx：当前预测值
                 history.append(snapshot)
@@ -242,7 +253,8 @@ class SupervisedTrainerV3:
         labels = np.full_like(preds, np.nan)
         for raw_batch in tqdm(loader, desc="Predict"):
             batch = self._to_device(raw_batch)
-            output = module(batch["feats"]).reshape(-1).cpu().numpy()
+            output, _ = self._unpack_model_output(module(batch["feats"]))
+            output = output.cpu().numpy()
             date_ids = np.asarray(raw_batch["date_idx"]).reshape(-1)
             ticks = np.asarray(raw_batch["tick_idxs"]).reshape(-1)
             preds[date_ids[0], ticks] = output

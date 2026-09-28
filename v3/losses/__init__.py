@@ -19,6 +19,7 @@ from .rankic import (
     neural_sort_rank, sigmoid_rank, weighted_corr,
 )
 from .temporal import TemporalRankICLoss
+from .prime import PrimeCombinedLoss
 from v3.config import merge_dict
 
 
@@ -29,6 +30,7 @@ LOSS_REGISTRY = {
     "rankic": DifferentiableRankICLoss,
     "domain_rankic": DomainWeightedRankICLoss,
     "temporal_rankic": TemporalRankICLoss,
+    "prime": PrimeCombinedLoss,
 }
 
 def build_loss(name: str, params=None):
@@ -44,6 +46,16 @@ LOSS_PRESETS = {
     "mse": {"name": "mse", "params": {}},
     "ic": {"name": "ic", "params": {}},
     "rankic": {"name": "rankic", "params": {"temperature": 0.01, "method": "sigmoid"}},
+    "prime": {
+        "name": "prime",
+        "params": {
+            "ic_weight": 1.0,
+            "rank_weight": 0.5,
+            "pairwise_weight": 0.2,
+            "physics_weight": 0.05,
+            "vol_neutral_weight": 0.05,
+        },
+    },
     "domain_rankic_index": {
         "name": "domain_rankic",
         "params": {
@@ -70,7 +82,7 @@ __all__ = [
     "ContextLoss", "DifferentiableRankICLoss", "DOMAIN_PROVIDERS", "DomainProvider",
     "DomainWeightedRankICLoss", "IndustryDomainProvider", "IndexDomainProvider",
     "LOSS_PRESETS", "LOSS_REGISTRY", "MSELoss", "PearsonICLoss", "build_domain_provider",
-    "register_domain_provider", "TemporalRankICLoss", "build_loss",
+    "register_domain_provider", "TemporalRankICLoss", "PrimeCombinedLoss", "build_loss",
     "loss_config",
     "neural_sort_rank", "sigmoid_rank", "weighted_corr",
 ]

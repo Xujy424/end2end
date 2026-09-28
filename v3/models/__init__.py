@@ -5,6 +5,7 @@ from importlib import import_module
 
 MODEL_DICT = {
     "gru": ("v3.models.gru", "GRU_Model", "GRU_Config"),
+    "prime": ("v3.models.prime", "PrimeEnergyModel", "PRIME_Config"),
 }
 
 def get_model_config(name):
